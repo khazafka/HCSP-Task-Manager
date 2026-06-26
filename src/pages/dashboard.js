@@ -1,96 +1,44 @@
-import { supabase } from '../supabase.js'
-import { renderOrders } from './order.js'
+export async function renderDashboard(profile) {
+  const container = document.querySelector('#main-content');
+  if (!container) return;
 
-export async function renderDashboard() {
-  try {
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      document.querySelector('#app').innerHTML = `
-        <div class="p-8">
-          <h1>No user found</h1>
-        </div>
-      `
-      return
-    }
-
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    document.querySelector('#app').innerHTML = `
-      <div class="min-h-screen bg-gray-100 p-8">
-
-        <div class="bg-white p-6 rounded-lg shadow">
-
-          <h1 class="text-3xl font-bold text-blue-600 mb-6">
-            HCSP-OM Dashboard
-          </h1>
-
-          <div class="space-y-2">
-            <p>
-              <strong>Email:</strong>
-              ${user.email}
-            </p>
-
-            <p>
-              <strong>Role:</strong>
-              ${profile?.role ?? '-'}
-            </p>
-
-            <p>
-              <strong>Name:</strong>
-              ${profile?.full_name ?? '-'}
-            </p>
-          </div>
-
-          <div class="mt-6 flex gap-3">
-
-            <button
-              id="ordersBtn"
-              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              Orders
-            </button>
-
-            <button
-              id="logoutBtn"
-              class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              Logout
-            </button>
-
-          </div>
-
-        </div>
-
+  container.innerHTML = `
+    <div class="max-w-5xl mx-auto text-left space-y-6">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 !my-0">HCSP-OM Dashboard</h1>
+        <p class="text-xs text-gray-500 mt-1">Human Capital Operational Overview Hub</p>
       </div>
-    `
 
-    document
-      .querySelector('#ordersBtn')
-      .addEventListener('click', () => {
-        renderOrders()
-      })
-
-    document
-      .querySelector('#logoutBtn')
-      .addEventListener('click', async () => {
-        await supabase.auth.signOut()
-        location.reload()
-      })
-
-  } catch (err) {
-    console.error(err)
-
-    document.querySelector('#app').innerHTML = `
-      <div class="p-8 text-red-500">
-        ${err.message}
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+          <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400 block">Name</span>
+          <span class="text-base font-bold text-gray-800 block mt-1">${profile?.full_name ?? 'Admin User'}</span>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+          <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400 block">Role Assignment</span>
+          <span class="text-base font-bold text-gray-800 block mt-1 uppercase">${profile?.role ?? 'ADMIN'}</span>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
+          <span class="text-[10px] uppercase tracking-wider font-bold text-gray-400 block">Unit Bisnis</span>
+          <span class="text-base font-bold text-gray-800 block mt-1">-</span>
+        </div>
       </div>
-    `
+
+      <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <button id="dashViewOrdersBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold transition shadow-sm">
+          View Active Orders
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Wire up the button element click event handler
+  const viewOrdersBtn = document.querySelector('#dashViewOrdersBtn');
+  if (viewOrdersBtn) {
+    viewOrdersBtn.addEventListener('click', () => {
+      if (typeof window.navigateToOrders === 'function') {
+        window.navigateToOrders(); // Triggers the sidebar navigation flow cleanly
+      }
+    });
   }
 }

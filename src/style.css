@@ -52,6 +52,7 @@
 
 body {
   margin: 0;
+  background-color: #f3f4f6; /* gray-100 */
 }
 
 h1,
@@ -156,15 +157,16 @@ code {
   }
 }
 
+/* Keep your :root variables and typography rules exactly as they are at the top */
+
+body {
+  margin: 0;
+  background-color: #f3f4f6; /* gray-100 */
+}
+
+/* Strip the width constraints and centering so Tailwind can work edge-to-edge */
 #app {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+  min-height: 100vh;
   box-sizing: border-box;
 }
 
