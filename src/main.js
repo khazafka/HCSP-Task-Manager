@@ -3,6 +3,11 @@ import { supabase } from './supabase.js';
 import { renderLogin } from './pages/login.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { renderOrders } from './pages/order.js';
+import { initTheme, getTheme, applyTheme } from './utils/theme.js';
+import { notify } from './utils/notify.js';
+import { fetchNotifications, markNotificationsRead } from './utils/notifications.js';
+
+initTheme();
 
 /* ---------------- Roles & permissions (RBAC) ---------------- */
 
@@ -18,6 +23,7 @@ export function normalizeRole(raw) {
 
 const PERMS = {
   createOrder: ['customer', 'hcam', 'admin'],
+  editOrder: ['customer', 'hcam', 'admin'],
   deleteOrder: ['admin'],
   assignOrder: ['hcam', 'admin'],
   updateStatus: ['hcam', 'team', 'admin'],
@@ -110,8 +116,14 @@ function renderApp(profile, animate) {
           <div class="crumb">Pages / <b id="crumbPage">Dashboard</b></div>
           <div class="header-tools">
             <input class="header-search" placeholder="Search…" />
-            <button class="icon-btn" aria-label="Notifications">${ICON.bell}</button>
-            <button class="icon-btn" aria-label="Settings">${ICON.settings}</button>
+            <div class="bell-wrap">
+              <button class="icon-btn" id="bellBtn" aria-label="Notifications">${ICON.bell}<span class="bell-badge" id="bellBadge" hidden>0</span></button>
+              <div class="notif-panel" id="notifPanel" hidden>
+                <div class="notif-panel-head">Notifications</div>
+                <div id="notifList"></div>
+              </div>
+            </div>
+            <button class="icon-btn" id="settingsBtn" aria-label="Settings">${ICON.settings}</button>
             <div class="avatar" title="${name}">${initials}</div>
           </div>
         </header>
@@ -132,6 +144,7 @@ function renderApp(profile, animate) {
     reports: { title: 'Work Reports', render: () => renderPlaceholder('Work Reports', 'Submitted work reports and attachments appear here.') },
     users: { title: 'Users', render: () => renderPlaceholder('User Management', 'Create, edit, and assign roles to users.') },
     profile: { title: 'Profile', render: () => renderProfile(profile) },
+    settings: { title: 'Settings', render: () => renderSettings() },
   };
 
   function go(routeId) {
@@ -147,6 +160,9 @@ function renderApp(profile, animate) {
   document.querySelectorAll('#sideNav .nav-item').forEach(btn => {
     btn.addEventListener('click', () => go(btn.dataset.route));
   });
+
+  document.querySelector('#settingsBtn').addEventListener('click', () => go('settings'));
+  setupBell();
 
   document.querySelector('#logoutBtn').addEventListener('click', async () => {
     const shell = document.querySelector('#appShell');
@@ -187,6 +203,84 @@ function renderPlaceholder(title, sub) {
     <div class="page-head"><h1>${title}</h1><p>${sub}</p></div>
     <div class="placeholder-card">Coming next — this module is scaffolded and ready to wire up.</div>
   `;
+}
+
+async function setupBell() {
+  const btn = document.querySelector('#bellBtn');
+  const panel = document.querySelector('#notifPanel');
+  const badge = document.querySelector('#bellBadge');
+  const list = document.querySelector('#notifList');
+  if (!btn) return;
+
+  const timeAgo = (ts) => {
+    const d = (Date.now() - new Date(ts).getTime()) / 1000;
+    if (d < 60) return 'just now';
+    if (d < 3600) return Math.floor(d / 60) + 'm ago';
+    if (d < 86400) return Math.floor(d / 3600) + 'h ago';
+    return new Date(ts).toLocaleDateString();
+  };
+
+  const renderList = (items) => {
+    list.innerHTML = items.length
+      ? items.map(n => `
+        <div class="notif-row ${n.is_read ? '' : 'unread'}">
+          <div class="nr-title">${n.title || 'Notification'}</div>
+          <div class="nr-body">${n.body || ''}</div>
+          <div class="nr-time">${timeAgo(n.created_at)}</div>
+        </div>`).join('')
+      : '<div class="notif-empty">No notifications yet.</div>';
+  };
+
+  const setBadge = (items) => {
+    const unread = items.filter(n => !n.is_read).length;
+    if (unread > 0) { badge.textContent = unread > 9 ? '9+' : unread; badge.hidden = false; }
+    else badge.hidden = true;
+  };
+
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const opening = panel.hidden;
+    panel.hidden = !opening;
+    if (!opening) return;
+    const items = await fetchNotifications(20);
+    renderList(items);
+    if (items.some(n => !n.is_read)) { await markNotificationsRead(); badge.hidden = true; }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!panel.hidden && !panel.contains(e.target) && !btn.contains(e.target)) panel.hidden = true;
+  });
+
+  setBadge(await fetchNotifications(20));
+}
+
+function renderSettings() {
+  const view = document.querySelector('#appContent .view');
+  if (!view) return;
+  const sun = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
+  const moon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
+  const current = getTheme();
+
+  view.innerHTML = `
+    <div class="page-head"><h1>Settings</h1><p>Personalize your HCSP-OM workspace.</p></div>
+    <div class="settings-section">
+      <h3>Theme</h3>
+      <p>Choose how the interface looks. Your choice is saved on this device.</p>
+      <div class="theme-toggle" id="themeToggle">
+        <button data-theme-val="light" class="${current === 'light' ? 'active' : ''}">${sun} Light</button>
+        <button data-theme-val="dark" class="${current === 'dark' ? 'active' : ''}">${moon} Dark</button>
+      </div>
+    </div>
+  `;
+
+  view.querySelectorAll('#themeToggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.themeVal;
+      applyTheme(val);
+      view.querySelectorAll('#themeToggle button').forEach(b => b.classList.toggle('active', b === btn));
+      notify(`Switched to ${val} mode.`, 'success', { title: 'Theme updated' });
+    });
+  });
 }
 
 function renderProfile(profile) {

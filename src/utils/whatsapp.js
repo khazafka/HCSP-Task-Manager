@@ -1,33 +1,22 @@
 // src/utils/whatsapp.js
+import { supabase } from '../supabase.js';
 
+// Sends a WhatsApp message via our server-side proxy (/api/send-wa).
+// The Fonnte token never reaches the browser.
 export const sendWhatsAppMessage = async (target, message) => {
-  const token = import.meta.env.VITE_FONNTE_TOKEN;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
 
-  try {
-    const response = await fetch('https://api.fonnte.com/send', {
-      method: 'POST',
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        target: target,
-        message: message,
-      }),
-    });
+  const res = await fetch('/api/send-wa', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ target, message }),
+  });
 
-    const data = await response.json();
-
-    if (!data.status) {
-      throw new Error(data.reason || 'Failed to send message');
-    }
-
-    console.log('WhatsApp message queued successfully:', data);
-    return data;
-
-  } catch (error) {
-    console.error('WhatsApp API Error:', error.message);
-    // Here you could add a call to log this error to Supabase
-    throw error;
-  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Failed to send WhatsApp message');
+  return data;
 };
