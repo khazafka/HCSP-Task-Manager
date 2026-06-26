@@ -31,7 +31,7 @@ function showToast(message, type = 'success') {
 
 // --- READ (List view) ---
 export async function renderOrders(profile) {
-  const container = document.querySelector('#main-content');
+  const container = document.querySelector('#appContent');
   if (!container) return;
 
   const { data: orders, error } = await supabase
@@ -81,7 +81,7 @@ export async function renderOrders(profile) {
 
 // --- CREATE ---
 async function renderCreateOrderForm(profile) {
-  const container = document.querySelector('#main-content');
+  const container = document.querySelector('#appContent');
   if (!container) return;
 
   const { data: businessUnits } = await supabase.from('business_units').select('*').order('id');
@@ -139,7 +139,7 @@ async function renderCreateOrderForm(profile) {
 
 // --- UPDATE & EDIT VIEW ---
 export async function renderEditOrder(orderId, profile) {
-  const container = document.querySelector('#main-content');
+  const container = document.querySelector('#appContent');
   if (!container) return;
 
   const { data: order, error } = await supabase.from('orders').select('*').eq('id', orderId).single();

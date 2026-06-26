@@ -23,7 +23,7 @@ function showToast(message, type = 'success') {
 }
 
 export async function renderOrderDetails(orderId, profile) {
-  const container = document.querySelector('#main-content');
+  const container = document.querySelector('#appContent');
   if (!container) return;
 
   const userRole = profile?.role?.toLowerCase() || 'customer';
