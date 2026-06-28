@@ -490,6 +490,38 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 [data-theme="light"] .btn-primary, [data-theme="light"] .fab { color: #ffffff; }
 
 /* ============================================================
+   TELKOM THEME — corporate white + #E31E24 red
+   ============================================================ */
+[data-theme="telkom"] {
+  --bg: #f5f6f8;
+  --bg-2: #ffffff;
+  --bg-3: #f0f2f5;
+  --line: #e6e8ec;
+  --line-soft: #eef0f3;
+
+  --text: #1f2430;
+  --text-dim: #5b6472;
+  --text-faint: #8a93a0;
+
+  /* accent remapped from green -> Telkom red */
+  --green: #E31E24;
+  --green-bright: #b71419;
+  --green-dim: rgba(227, 30, 36, 0.10);
+  --green-line: rgba(227, 30, 36, 0.35);
+
+  --danger: #dc2626;
+  --amber: #d97706;
+
+  --header-bg: rgba(255, 255, 255, 0.85);
+  color-scheme: light;
+}
+[data-theme="telkom"] .btn-primary,
+[data-theme="telkom"] .fab,
+[data-theme="telkom"] .bell-badge { color: #ffffff; }
+[data-theme="telkom"] .app-brand { text-shadow: none; }
+[data-theme="telkom"] .bar { background: var(--green); }
+
+/* ============================================================
    ORDERS — toolbar, view toggle, filter, grid/list, menu, FAB
    ============================================================ */
 .toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }

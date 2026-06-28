@@ -1,7 +1,7 @@
 const KEY = 'hcsp-theme';
 
 export function getTheme() {
-  return localStorage.getItem(KEY) || 'dark';
+  return localStorage.getItem(KEY) || 'telkom';
 }
 
 export function applyTheme(theme) {
