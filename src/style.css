@@ -342,6 +342,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 
 .app-sidebar {
   width: 248px; flex-shrink: 0;
+  position: relative; z-index: 30;   /* keep sidebar profile menu above content */
   background: var(--bg-2);
   border-right: 1px solid var(--line);
   display: flex; flex-direction: column;
@@ -373,6 +374,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 
 .app-header {
   height: 64px; flex-shrink: 0;
+  position: relative; z-index: 40;   /* keep header dropdowns above the content cards */
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 26px;
   border-bottom: 1px solid var(--line);
@@ -380,6 +382,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   backdrop-filter: blur(8px);
   transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.app-content { position: relative; z-index: 1; }
 .crumb { font-size: 13px; color: var(--text-dim); }
 .crumb b { color: var(--text); font-weight: 600; }
 .header-tools { display: flex; align-items: center; gap: 14px; }
