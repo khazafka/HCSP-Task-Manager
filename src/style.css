@@ -549,6 +549,9 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   transition: all .15s ease;
 }
 .chip.active { background: var(--green-dim); color: var(--green); border-color: var(--green-line); }
+.date-row { display: flex; align-items: center; gap: 8px; }
+.date-input { padding: 7px 9px; font-size: 12.5px; flex: 1; min-width: 0; }
+.date-sep { color: var(--text-faint); font-size: 12px; }
 .filter-clear { margin-top: 4px; background: none; border: none; color: var(--text-dim); font: 500 12px var(--sans); cursor: pointer; padding: 0; }
 .filter-clear:hover { color: var(--green); }
 

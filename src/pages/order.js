@@ -5,6 +5,7 @@ import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
 import { t } from '../utils/i18n.js';
+import { subscribeOrders, debounce } from '../utils/realtime.js';
 
 const STATUSES = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
 
@@ -146,7 +147,7 @@ async function recordStatusHistory(orderId, status) {
 
 // view + filter state (persisted across re-renders)
 let view = localStorage.getItem('orders-view') || 'grid';
-const filters = { sort: 'newest', statuses: [], items: [], unit: '' };
+const filters = { sort: 'newest', statuses: [], items: [], unit: '', dateFrom: '', dateTo: '' };
 
 export async function renderOrders(profile) {
   const container = document.querySelector('#appContent');
@@ -216,6 +217,14 @@ export async function renderOrders(profile) {
                 ${ITEM_ORDERS.map(i => `<button class="chip" data-val="${i.code}" title="${i.name}">${i.code}</button>`).join('')}
               </div>
             </div>
+            <div class="filter-group">
+              <h5>${t('ord.dateRange')}</h5>
+              <div class="date-row">
+                <input type="date" id="dateFrom" class="input date-input" value="${filters.dateFrom}" aria-label="From"/>
+                <span class="date-sep">—</span>
+                <input type="date" id="dateTo" class="input date-input" value="${filters.dateTo}" aria-label="To"/>
+              </div>
+            </div>
             ${units.length ? `
             <div class="filter-group">
               <h5>${t('ord.teamUnit')}</h5>
@@ -241,6 +250,8 @@ export async function renderOrders(profile) {
     if (filters.statuses.length) out = out.filter(o => filters.statuses.includes(o.status));
     if (filters.items.length) out = out.filter(o => filters.items.includes(o.item_order));
     if (filters.unit) out = out.filter(o => o.business_units?.name === filters.unit);
+    if (filters.dateFrom) out = out.filter(o => o.created_at && o.created_at.slice(0, 10) >= filters.dateFrom);
+    if (filters.dateTo) out = out.filter(o => o.created_at && o.created_at.slice(0, 10) <= filters.dateTo);
     const byTitle = (a, b) => (a.order_title || '').localeCompare(b.order_title || '');
     if (filters.sort === 'az') out.sort(byTitle);
     else if (filters.sort === 'za') out.sort((a, b) => byTitle(b, a));
@@ -380,9 +391,18 @@ export async function renderOrders(profile) {
       draw();
     });
   });
+  // date range inputs
+  const dateFromEl = container.querySelector('#dateFrom');
+  const dateToEl = container.querySelector('#dateTo');
+  dateFromEl?.addEventListener('change', () => { filters.dateFrom = dateFromEl.value; draw(); });
+  dateToEl?.addEventListener('change', () => { filters.dateTo = dateToEl.value; draw(); });
+
   container.querySelector('#filterClear').addEventListener('click', () => {
     filters.sort = 'newest'; filters.statuses = []; filters.items = []; filters.unit = '';
+    filters.dateFrom = ''; filters.dateTo = '';
     filterPop.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    if (dateFromEl) dateFromEl.value = '';
+    if (dateToEl) dateToEl.value = '';
     filterPop.querySelector('[data-group="sort"] [data-val="newest"]')?.classList.add('active');
     draw();
   });
@@ -412,6 +432,13 @@ export async function renderOrders(profile) {
 
   // FAB
   container.querySelector('#createFab')?.addEventListener('click', () => renderCreateOrderForm(profile));
+
+  // Live updates — re-render when orders change elsewhere (skip while the filter popover is open)
+  subscribeOrders(debounce(() => {
+    const stillHere = document.querySelector('#ordersBody');
+    const filtering = !document.querySelector('#filterPop')?.hasAttribute('hidden');
+    if (stillHere && !filtering) renderOrders(profile);
+  }, 600));
 }
 
 async function deleteOrder(orderId, profile) {

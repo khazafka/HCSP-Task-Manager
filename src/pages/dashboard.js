@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { normalizeRole, can, ICON } from '../main.js';
 import { t } from '../utils/i18n.js';
+import { subscribeOrders, debounce } from '../utils/realtime.js';
 
 export async function renderDashboard(profile) {
   const view = document.querySelector('#appContent .view');
@@ -144,6 +145,11 @@ export async function renderDashboard(profile) {
   view.querySelectorAll('[data-order]').forEach(row => {
     row.addEventListener('click', () => window.navigateTo?.('orders'));
   });
+
+  // Live updates — refresh metrics when orders change anywhere
+  subscribeOrders(debounce(() => {
+    if (document.querySelector('#appContent .view .cards-grid')) renderDashboard(profile);
+  }, 800));
 }
 
 /* helpers */

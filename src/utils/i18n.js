@@ -61,7 +61,7 @@ const DICT = {
     // orders list
     'ord.title': 'Orders', 'ord.sub': 'Track and manage Human Capital service requests.',
     'ord.filter': 'Filter', 'ord.sort': 'Sort', 'ord.az': 'A–Z', 'ord.za': 'Z–A', 'ord.newest': 'Newest', 'ord.oldest': 'Oldest',
-    'ord.lifecycle': 'Life cycle / pipeline', 'ord.service': 'Service / jenis', 'ord.teamUnit': 'Team / business unit', 'ord.clear': 'Clear all filters',
+    'ord.lifecycle': 'Life cycle / pipeline', 'ord.service': 'Service / jenis', 'ord.teamUnit': 'Team / business unit', 'ord.dateRange': 'Created date range', 'ord.clear': 'Clear all filters',
     'ord.noMatch': 'No orders match your filters', 'ord.noMatchCta': ' — create one with the button below.',
     'ord.unit': 'Unit', 'ord.contact': 'Contact', 'ord.untitled': 'Untitled order',
     'ord.view': 'View', 'ord.edit': 'Edit', 'ord.delete': 'Delete', 'ord.createBtn': 'Create order',
@@ -142,7 +142,7 @@ const DICT = {
 
     'ord.title': 'Order', 'ord.sub': 'Pantau dan kelola permintaan layanan Human Capital.',
     'ord.filter': 'Filter', 'ord.sort': 'Urutkan', 'ord.az': 'A–Z', 'ord.za': 'Z–A', 'ord.newest': 'Terbaru', 'ord.oldest': 'Terlama',
-    'ord.lifecycle': 'Siklus / pipeline', 'ord.service': 'Layanan / jenis', 'ord.teamUnit': 'Tim / unit bisnis', 'ord.clear': 'Hapus semua filter',
+    'ord.lifecycle': 'Siklus / pipeline', 'ord.service': 'Layanan / jenis', 'ord.teamUnit': 'Tim / unit bisnis', 'ord.dateRange': 'Rentang tanggal dibuat', 'ord.clear': 'Hapus semua filter',
     'ord.noMatch': 'Tidak ada order yang cocok dengan filter', 'ord.noMatchCta': ' — buat satu dengan tombol di bawah.',
     'ord.unit': 'Unit', 'ord.contact': 'Kontak', 'ord.untitled': 'Order tanpa judul',
     'ord.view': 'Lihat', 'ord.edit': 'Ubah', 'ord.delete': 'Hapus', 'ord.createBtn': 'Buat Order',
