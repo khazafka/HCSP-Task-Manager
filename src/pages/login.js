@@ -1,4 +1,4 @@
-import { supabase } from '../supabase.js'
+import { supabase, supabaseConfigInfo } from '../supabase.js'
 import { t } from '../utils/i18n.js'
 
 const EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`
@@ -73,6 +73,13 @@ export function renderLogin(onSuccess) {
     msg.className = 'auth-msg auth-msg-' + type
     if (card.getAttribute('data-mode') === 'form') panel.style.maxHeight = panel.scrollHeight + 'px'
   }
+  function authErrorMessage(err) {
+    const text = err?.message || t('login.errFailed')
+    if (/invalid path specified in request url/i.test(text)) {
+      return `${text}. Check VITE_SUPABASE_URL in Vercel. This build is using ${supabaseConfigInfo.url || '(empty)'}, and it must resolve to https://<project-ref>.supabase.co.`
+    }
+    return text
+  }
 
   openBtn.addEventListener('click', () => {
     clearMsg()
@@ -127,7 +134,7 @@ export function renderLogin(onSuccess) {
       }, 480)
     } catch (err) {
       overlay.remove()
-      showMsg(err.message || t('login.errFailed'))
+      showMsg(authErrorMessage(err))
       submitBtn.disabled = false
       submitBtn.textContent = t('login.login')
     }
