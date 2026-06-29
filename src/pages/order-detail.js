@@ -170,6 +170,7 @@ function showReportDetail(report) {
         </div>` : '<div class="empty">No attachments uploaded.</div>'}
       <div class="modal-actions">
         <button class="btn btn-ghost" type="button" data-modal-cancel>Close</button>
+        <button class="btn btn-ghost" type="button" data-export-report-pdf>Export PDF</button>
         <button class="btn btn-primary" type="button" data-download-report ${attachments.length ? '' : 'disabled'}>Unduh semua</button>
       </div>
     </div>
@@ -182,7 +183,17 @@ function showReportDetail(report) {
   };
   el.querySelectorAll('[data-modal-cancel]').forEach(btn => btn.addEventListener('click', close));
   el.addEventListener('click', e => { if (e.target === el) close(); });
-  el.querySelector('[data-download-report]')?.addEventListener('click', () => downloadAttachments(attachments));
+  el.querySelector('[data-export-report-pdf]')?.addEventListener('click', async () => {
+    const exp = await import('../utils/export-reports.js');
+    exp.exportSingleReportPdf(report);
+  });
+  el.querySelector('[data-download-report]')?.addEventListener('click', async () => {
+    try {
+      await downloadAttachments(attachments, { zipName: `work-report-${report.id}-attachments` });
+    } catch (err) {
+      notify(err.message, 'error');
+    }
+  });
   el.querySelectorAll('[data-open-attachment]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const attachment = attachments.find(a => `${a.id}` === btn.dataset.openAttachment);
@@ -355,7 +366,7 @@ export async function renderOrderDetails(orderId, profile) {
   container.querySelectorAll('[data-report-detail]').forEach(btn => {
     btn.addEventListener('click', () => {
       const report = workReports.find(r => `${r.id}` === btn.dataset.reportDetail);
-      if (report) showReportDetail(report);
+      if (report) showReportDetail({ ...report, orders: order });
     });
   });
   container.querySelectorAll('[data-report-download]').forEach(btn => {
@@ -363,7 +374,7 @@ export async function renderOrderDetails(orderId, profile) {
       const report = workReports.find(r => `${r.id}` === btn.dataset.reportDownload);
       if (!report) return;
       try {
-        await downloadAttachments(report.work_report_attachments || []);
+        await downloadAttachments(report.work_report_attachments || [], { zipName: `work-report-${report.id}-attachments` });
       } catch (err) {
         notify(err.message, 'error');
       }

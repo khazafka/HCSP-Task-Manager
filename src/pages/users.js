@@ -13,6 +13,7 @@ const ROLES = [
 
 let editingId = null;
 let users = [];
+const userFilters = { search: '', role: '' };
 
 export async function renderUsers() {
   const view = document.querySelector('#appContent .view');
@@ -65,6 +66,13 @@ export async function renderUsers() {
           </div>
           <button class="btn btn-ghost" id="refreshUsersBtn">Refresh</button>
         </div>
+        <div class="page-controls user-page-controls">
+          <input id="userSearch" class="page-search" type="search" placeholder="Search users by name, email, phone, or unit..." value="${escapeHtml(userFilters.search)}"/>
+          <select id="userRoleFilter" class="select compact-select">
+            <option value="">All roles</option>
+            ${ROLES.map(r => `<option value="${r.value}" ${userFilters.role === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
+          </select>
+        </div>
         <div id="usersList"><div class="empty">Loading users...</div></div>
       </div>
     </div>
@@ -76,6 +84,14 @@ export async function renderUsers() {
   view.querySelector('#cancelUserBtn').addEventListener('click', closeForm);
   view.querySelector('#saveUserBtn').addEventListener('click', saveUser);
   view.querySelector('#refreshUsersBtn').addEventListener('click', loadUsers);
+  view.querySelector('#userSearch').addEventListener('input', (e) => {
+    userFilters.search = e.target.value;
+    drawUsers();
+  });
+  view.querySelector('#userRoleFilter').addEventListener('change', (e) => {
+    userFilters.role = e.target.value;
+    drawUsers();
+  });
 
   await loadUsers();
 }
@@ -156,8 +172,15 @@ function drawUsers() {
   const list = document.querySelector('#usersList');
   if (!list) return;
 
+  const filteredUsers = filterUsers(users);
+
   if (!users.length) {
     list.innerHTML = '<div class="empty">No users yet. Create the first account above.</div>';
+    return;
+  }
+
+  if (!filteredUsers.length) {
+    list.innerHTML = '<div class="empty">No users matched your search or role filter.</div>';
     return;
   }
 
@@ -170,7 +193,7 @@ function drawUsers() {
         <span>Position</span>
         <span></span>
       </div>
-      ${users.map(u => `
+      ${filteredUsers.map(u => `
         <div class="user-row">
           <div class="user-main">
             <div class="user-avatar">${initials(u.full_name || u.email)}</div>
@@ -196,6 +219,25 @@ function drawUsers() {
       if (user) openForm(user);
     });
   });
+}
+
+function filterUsers(list) {
+  let out = [...list];
+  const q = userFilters.search.trim().toLowerCase();
+  if (q) {
+    out = out.filter(u => [
+      u.full_name,
+      u.email,
+      u.phone,
+      u.unit_bisnis,
+      roleLabel(u.role),
+      u.role,
+    ].some(value => (value || '').toString().toLowerCase().includes(q)));
+  }
+  if (userFilters.role) {
+    out = out.filter(u => u.role === userFilters.role);
+  }
+  return out;
 }
 
 function openForm(user) {

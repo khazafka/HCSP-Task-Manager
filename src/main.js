@@ -148,7 +148,6 @@ function renderApp(profile, animate) {
         <header class="app-header">
           <div class="crumb">${t('hdr.pages')} / <b id="crumbPage">${t('nav.dashboard')}</b></div>
           <div class="header-tools">
-            <input class="header-search" placeholder="${t('hdr.search')}" />
             <div class="bell-wrap">
               <button class="icon-btn" id="bellBtn" aria-label="${t('hdr.notifications')}">${ICON.bell}<span class="bell-badge" id="bellBadge" hidden>0</span></button>
               <div class="notif-panel" id="notifPanel" hidden>

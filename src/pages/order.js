@@ -152,7 +152,7 @@ async function recordStatusHistory(orderId, status) {
 
 // view + filter state (persisted across re-renders)
 let view = localStorage.getItem('orders-view') || 'grid';
-const filters = { sort: 'newest', statuses: [], items: [], unit: '', dateFrom: '', dateTo: '' };
+const filters = { search: '', sort: 'newest', statuses: [], items: [], unit: '', dateFrom: '', dateTo: '' };
 
 export async function renderOrders(profile) {
   const container = document.querySelector('#appContent');
@@ -242,6 +242,10 @@ export async function renderOrders(profile) {
         </div>
       </div>
 
+      <div class="page-controls">
+        <input id="orderSearch" class="page-search" type="search" placeholder="Search orders by title, ID, contact, service, or unit..." value="${escapeHtml(filters.search)}"/>
+      </div>
+
       <div id="ordersBody"></div>
     </div>
 
@@ -252,6 +256,20 @@ export async function renderOrders(profile) {
 
   function applyFilters(list) {
     let out = [...list];
+    const q = filters.search.trim().toLowerCase();
+    if (q) {
+      out = out.filter(o => [
+        `ord-${o.id}`,
+        `#ord-${o.id}`,
+        o.order_title,
+        o.order_description,
+        o.contact_number,
+        o.item_order,
+        itemOrderLabel(o.item_order),
+        o.status,
+        orderUnitName(o),
+      ].some(value => (value || '').toString().toLowerCase().includes(q)));
+    }
     if (filters.statuses.length) out = out.filter(o => filters.statuses.includes(o.status));
     if (filters.items.length) out = out.filter(o => filters.items.includes(o.item_order));
     if (filters.unit) out = out.filter(o => o.business_units?.name === filters.unit);
@@ -340,6 +358,12 @@ export async function renderOrders(profile) {
   }
 
   draw();
+
+  const searchEl = container.querySelector('#orderSearch');
+  searchEl?.addEventListener('input', debounce(() => {
+    filters.search = searchEl.value;
+    draw();
+  }, 160));
 
   // view toggle
   container.querySelectorAll('#viewSeg button').forEach(b => {

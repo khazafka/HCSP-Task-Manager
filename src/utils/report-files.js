@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js';
+import JSZip from 'jszip';
 
 export const REPORT_BUCKET = 'work-report-attachments';
 export const MAX_REPORT_FILE_SIZE = 10 * 1024 * 1024;
@@ -59,10 +60,34 @@ export async function openAttachment(path) {
   window.open(data.signedUrl, '_blank', 'noopener');
 }
 
-export async function downloadAttachments(attachments = []) {
-  for (const attachment of attachments) {
-    await openAttachment(attachment.file_path);
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = sanitizeFileName(fileName);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function downloadAttachments(attachments = [], options = {}) {
+  const files = attachments.filter(a => a?.file_path);
+  if (!files.length) return;
+
+  const zip = new JSZip();
+  for (const attachment of files) {
+    const { data, error } = await supabase.storage
+      .from(REPORT_BUCKET)
+      .download(attachment.file_path);
+    if (error) throw new Error(`Download failed for ${attachment.file_name || attachment.file_path}: ${error.message}`);
+
+    const safeName = sanitizeFileName(attachment.file_name || attachment.file_path.split('/').pop());
+    zip.file(safeName, data);
   }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(zipBlob, `${options.zipName || 'work-report-attachments'}.zip`);
 }
 
 export async function deleteAttachmentFiles(attachments = []) {
