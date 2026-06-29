@@ -64,3 +64,10 @@ export async function downloadAttachments(attachments = []) {
     await openAttachment(attachment.file_path);
   }
 }
+
+export async function deleteAttachmentFiles(attachments = []) {
+  const paths = attachments.map(a => a.file_path).filter(Boolean);
+  if (!paths.length) return;
+  const { error } = await supabase.storage.from(REPORT_BUCKET).remove(paths);
+  if (error) throw new Error(error.message);
+}

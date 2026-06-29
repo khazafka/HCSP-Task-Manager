@@ -52,11 +52,32 @@ on conflict (id) do nothing;
 alter table public.work_reports enable row level security;
 alter table public.work_report_attachments enable row level security;
 
+drop policy if exists "Work reports are visible by role" on public.work_reports;
 drop policy if exists "Work reports are visible to authenticated users" on public.work_reports;
-create policy "Work reports are visible to authenticated users"
+create policy "Work reports are visible by role"
 on public.work_reports for select
 to authenticated
-using (true);
+using (
+  exists (
+    select 1 from public.users u
+    where u.id = auth.uid()
+      and (
+        lower(u.role) like '%admin%'
+        or lower(u.role) like '%hcam%'
+        or lower(u.role) like '%manage%'
+      )
+  )
+  or exists (
+    select 1 from public.orders o
+    where o.id = work_reports.order_id
+      and o.created_by = auth.uid()
+  )
+  or exists (
+    select 1 from public.order_assignments oa
+    where oa.order_id = work_reports.order_id
+      and oa.user_id = auth.uid()
+  )
+);
 
 drop policy if exists "Team can insert work reports" on public.work_reports;
 create policy "Team can insert work reports"
@@ -68,13 +89,60 @@ with check (
     where u.id = auth.uid()
       and lower(u.role) like '%team%'
   )
+  and created_by = auth.uid()
+  and exists (
+    select 1 from public.orders o
+    join public.order_assignments oa on oa.order_id = o.id
+    where o.id = work_reports.order_id
+      and oa.user_id = auth.uid()
+      and o.status in ('In Progress', 'Review')
+  )
 );
 
+drop policy if exists "Admins can delete work reports" on public.work_reports;
+create policy "Admins can delete work reports"
+on public.work_reports for delete
+to authenticated
+using (
+  exists (
+    select 1 from public.users u
+    where u.id = auth.uid()
+      and lower(u.role) like '%admin%'
+  )
+);
+
+drop policy if exists "Work report attachments are visible by role" on public.work_report_attachments;
 drop policy if exists "Work report attachments are visible to authenticated users" on public.work_report_attachments;
-create policy "Work report attachments are visible to authenticated users"
+create policy "Work report attachments are visible by role"
 on public.work_report_attachments for select
 to authenticated
-using (true);
+using (
+  exists (
+    select 1 from public.work_reports wr
+    where wr.id = work_report_attachments.work_report_id
+      and (
+        exists (
+          select 1 from public.users u
+          where u.id = auth.uid()
+            and (
+              lower(u.role) like '%admin%'
+              or lower(u.role) like '%hcam%'
+              or lower(u.role) like '%manage%'
+            )
+        )
+        or exists (
+          select 1 from public.orders o
+          where o.id = wr.order_id
+            and o.created_by = auth.uid()
+        )
+        or exists (
+          select 1 from public.order_assignments oa
+          where oa.order_id = wr.order_id
+            and oa.user_id = auth.uid()
+        )
+      )
+  )
+);
 
 drop policy if exists "Team can insert work report attachments" on public.work_report_attachments;
 create policy "Team can insert work report attachments"
@@ -85,6 +153,28 @@ with check (
     select 1 from public.users u
     where u.id = auth.uid()
       and lower(u.role) like '%team%'
+  )
+  and uploaded_by = auth.uid()
+  and exists (
+    select 1 from public.work_reports wr
+    join public.orders o on o.id = wr.order_id
+    join public.order_assignments oa on oa.order_id = wr.order_id
+    where wr.id = work_report_attachments.work_report_id
+      and wr.order_id = work_report_attachments.order_id
+      and oa.user_id = auth.uid()
+      and o.status in ('In Progress', 'Review')
+  )
+);
+
+drop policy if exists "Admins can delete work report attachments" on public.work_report_attachments;
+create policy "Admins can delete work report attachments"
+on public.work_report_attachments for delete
+to authenticated
+using (
+  exists (
+    select 1 from public.users u
+    where u.id = auth.uid()
+      and lower(u.role) like '%admin%'
   )
 );
 
@@ -99,3 +189,16 @@ create policy "Authenticated users can read work report files"
 on storage.objects for select
 to authenticated
 using (bucket_id = 'work-report-attachments');
+
+drop policy if exists "Admins can delete work report files" on storage.objects;
+create policy "Admins can delete work report files"
+on storage.objects for delete
+to authenticated
+using (
+  bucket_id = 'work-report-attachments'
+  and exists (
+    select 1 from public.users u
+    where u.id = auth.uid()
+      and lower(u.role) like '%admin%'
+  )
+);

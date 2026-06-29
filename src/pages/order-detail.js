@@ -3,10 +3,8 @@ import { renderOrders, renderEditOrder, itemOrderLabel } from './order.js';
 import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
-import { downloadAttachments, formatFileSize, openAttachment, uploadReportFiles, validateReportFiles } from '../utils/report-files.js';
+import { deleteAttachmentFiles, downloadAttachments, formatFileSize, openAttachment, uploadReportFiles, validateReportFiles } from '../utils/report-files.js';
 import { t } from '../utils/i18n.js';
-
-const STATUSES = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
 
 function pillClass(status) {
   const s = (status || '').toLowerCase();
@@ -103,6 +101,48 @@ function reportDateLabel(report) {
   return value ? new Date(value).toLocaleDateString() : '-';
 }
 
+function isAssignedToOrder(order, userId) {
+  if (!order || !userId) return false;
+  return (order.order_assignments || []).some(a => a.user_id === userId || a.users?.id === userId);
+}
+
+function canViewOrder(order, profile, role) {
+  if (['admin', 'hcam', 'management'].includes(role)) return true;
+  if (role === 'customer') return order.created_by === profile?.id;
+  if (role === 'team') return isAssignedToOrder(order, profile?.id);
+  return false;
+}
+
+function canEditDetails(order, profile, role) {
+  if (!['Draft', 'Submitted'].includes(order.status)) return false;
+  if (['admin', 'hcam'].includes(role)) return true;
+  return role === 'customer' && order.created_by === profile?.id;
+}
+
+function allowedStatusTargets(order, profile, role) {
+  const assignedTeam = role === 'team' && isAssignedToOrder(order, profile?.id);
+  const isCreator = role === 'customer' && order.created_by === profile?.id;
+  const canHcamAdmin = ['hcam', 'admin'].includes(role);
+
+  switch (order.status) {
+    case 'Draft':
+      return (isCreator || canHcamAdmin) ? ['Submitted'] : [];
+    case 'Submitted':
+      return canHcamAdmin ? ['Assigned'] : [];
+    case 'Assigned':
+      return (assignedTeam || canHcamAdmin) ? ['In Progress'] : [];
+    case 'In Progress':
+      return (assignedTeam || canHcamAdmin) ? ['Review'] : [];
+    case 'Review':
+      if (canHcamAdmin) return ['In Progress', 'Completed'];
+      return [];
+    case 'Completed':
+      return ['admin', 'management'].includes(role) ? ['Closed'] : [];
+    default:
+      return [];
+  }
+}
+
 function showReportDetail(report) {
   const attachments = report.work_report_attachments || [];
   const el = document.createElement('div');
@@ -176,6 +216,17 @@ export async function renderOrderDetails(orderId, profile) {
   const assignableUsers = (allUsers || []).filter(u => ['hcam', 'team'].includes(normalizeRole(u.role)));
   const workReports = await fetchWorkReports(orderId);
 
+  if (!canViewOrder(order, profile, role)) {
+    container.innerHTML = `
+      <div class="view">
+        <button class="link-back" id="backBtn">&larr; ${t('det.back')}</button>
+        <div class="placeholder-card">You do not have access to this order.</div>
+      </div>
+    `;
+    container.querySelector('#backBtn').addEventListener('click', () => renderOrders(profile));
+    return;
+  }
+
   let history = [];
   try {
     const { data: h } = await supabase
@@ -186,11 +237,15 @@ export async function renderOrderDetails(orderId, profile) {
     history = h || [];
   } catch (_) { /* table may not exist yet */ }
 
-  const canEdit = (role === 'admin' || role === 'hcam' || role === 'customer') && (order.status === 'Draft' || order.status === 'Submitted');
+  const statusTargets = allowedStatusTargets(order, profile, role);
+  const canEdit = canEditDetails(order, profile, role);
   const canDelete = role === 'admin';
   const canAssign = role === 'admin' || role === 'hcam';
-  const canUpdateStatus = role === 'admin' || role === 'hcam' || role === 'team';
-  const canAddReport = role === 'team' && (order.status === 'In Progress' || order.status === 'Review');
+  const canUpdateStatus = statusTargets.length > 0;
+  const canAddReport = role === 'team'
+    && isAssignedToOrder(order, profile?.id)
+    && (order.status === 'In Progress' || order.status === 'Review');
+  const canDeleteReport = role === 'admin';
 
   container.innerHTML = `
     <div class="view">
@@ -241,6 +296,7 @@ export async function renderOrderDetails(orderId, profile) {
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
                   <button class="btn btn-ghost" data-report-detail="${r.id}" style="padding:7px 10px">Lihat detail</button>
                   <button class="btn btn-ghost" data-report-download="${r.id}" style="padding:7px 10px" ${r.work_report_attachments?.length ? '' : 'disabled'}>Unduh semua</button>
+                  ${canDeleteReport ? `<button class="btn btn-ghost" data-report-delete="${r.id}" style="padding:7px 10px;color:var(--danger);border-color:rgba(255,107,107,.3)">Delete</button>` : ''}
                   <span class="row-sub">${r.work_report_attachments?.length || 0} attachment(s)</span>
                 </div>
               </div>`).join('') : `<div class="empty">${t('det.noReports')}</div>`}
@@ -257,7 +313,7 @@ export async function renderOrderDetails(orderId, profile) {
               </div>`).join('')}</div>` : `<div class="empty" style="padding:10px 0">${t('det.noOperators')}</div>`}
             ${canAssign ? `
               <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-soft);padding-top:12px">
-                <select id="assignUserSelect" class="select"><option value="">${t('det.selectUser')}</option>${(allUsers || []).map(u => `<option value="${u.id}" data-role="${u.role}">${u.full_name} (${u.role})</option>`).join('')}</select>
+                <select id="assignUserSelect" class="select"><option value="">${t('det.selectUser')}</option>${assignableUsers.map(u => `<option value="${u.id}" data-role="${u.role}">${u.full_name} (${u.role})</option>`).join('')}</select>
                 <div style="font-size:11px;color:var(--text-faint)">Assignment WhatsApp is sent to the selected user's phone in User Management, not the order contact number.</div>
                 <button id="assignBtn" class="btn btn-primary" style="width:100%;justify-content:center">${t('det.assignUser')}</button>
               </div>` : ''}
@@ -266,7 +322,10 @@ export async function renderOrderDetails(orderId, profile) {
           ${canUpdateStatus ? `
             <div class="detail-block">
               <h3>${t('det.pipeline')}</h3>
-              <select id="statusSelect" class="select" style="margin-bottom:10px">${STATUSES.map(s => `<option value="${s}" ${order.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+              <select id="statusSelect" class="select" style="margin-bottom:10px">
+                <option value="${order.status}">${order.status}</option>
+                ${statusTargets.map(s => `<option value="${s}">${s}</option>`).join('')}
+              </select>
               <button id="updateStatusBtn" class="btn btn-ghost" style="width:100%;justify-content:center">${t('det.updateStatus')}</button>
             </div>` : ''}
 
@@ -308,6 +367,21 @@ export async function renderOrderDetails(orderId, profile) {
       } catch (err) {
         notify(err.message, 'error');
       }
+    });
+  });
+  container.querySelectorAll('[data-report-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const report = workReports.find(r => `${r.id}` === btn.dataset.reportDelete);
+      if (!report || !confirm(`Delete report "${report.report_title || report.id}"?`)) return;
+      try {
+        await deleteAttachmentFiles(report.work_report_attachments || []);
+      } catch (err) {
+        notify(`Storage cleanup failed; deleting database row anyway: ${err.message}`, 'warning');
+      }
+      const { error: deleteErr } = await supabase.from('work_reports').delete().eq('id', report.id);
+      if (deleteErr) { notify(deleteErr.message, 'error'); return; }
+      notify('Work report deleted.', 'success');
+      renderOrderDetails(order.id, profile);
     });
   });
 
@@ -355,6 +429,14 @@ export async function renderOrderDetails(orderId, profile) {
   if (canUpdateStatus) {
     container.querySelector('#updateStatusBtn').addEventListener('click', async () => {
       const newStatus = container.querySelector('#statusSelect').value;
+      if (newStatus === order.status) {
+        notify('Choose the next status first.', 'warning');
+        return;
+      }
+      if (!statusTargets.includes(newStatus)) {
+        notify('You are not allowed to move this order to that status.', 'warning');
+        return;
+      }
       const { error: e } = await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
       if (e) { notify(e.message, 'error'); return; }
       await recordStatusHistory(order.id, newStatus);
@@ -372,6 +454,10 @@ export async function renderOrderDetails(orderId, profile) {
 
   if (canAddReport) {
     container.querySelector('#submitReportBtn').addEventListener('click', async () => {
+      if (!isAssignedToOrder(order, profile?.id) || !['In Progress', 'Review'].includes(order.status)) {
+        notify('Only the assigned Team Solution can submit reports while the order is In Progress or Review.', 'warning');
+        return;
+      }
       const title = container.querySelector('#repTitle').value.trim();
       const reportDate = container.querySelector('#repDate').value || todayValue();
       const notes = container.querySelector('#repNotes').value.trim();

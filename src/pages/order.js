@@ -84,6 +84,12 @@ function contactOptions(users, selectedPhone = '') {
   `;
 }
 
+function canEditDetails(order, profile, role) {
+  if (!['Draft', 'Submitted'].includes(order.status)) return false;
+  if (['admin', 'hcam'].includes(role)) return true;
+  return role === 'customer' && order.created_by === profile?.id;
+}
+
 async function notifyHcamOrderSubmitted(order, businessUnitName, creatorName) {
   const contacts = await fetchContactUsers();
   const allHcams = contacts.filter(u => normalizeRole(u.role) === 'hcam');
@@ -253,7 +259,7 @@ export async function renderOrders(profile) {
       <button class="card-menu-btn" data-menu="${o.id}" aria-label="Order actions">${SVG.dots}</button>
       <div class="card-menu" id="menu-${o.id}" hidden>
         <button data-act="view" data-id="${o.id}">${SVG.view} ${t('ord.view')}</button>
-        ${can('editOrder', role) ? `<button data-act="edit" data-id="${o.id}">${SVG.edit} ${t('ord.edit')}</button>` : ''}
+        ${canEditDetails(o, profile, role) ? `<button data-act="edit" data-id="${o.id}">${SVG.edit} ${t('ord.edit')}</button>` : ''}
         ${can('deleteOrder', role) ? `<button class="danger" data-act="delete" data-id="${o.id}">${SVG.trash} ${t('ord.delete')}</button>` : ''}
       </div>`;
 
@@ -502,6 +508,12 @@ export async function renderEditOrder(orderId, profile) {
     fetchContactUsers(),
   ]);
   if (error) { notify(error.message, 'error'); return; }
+  const role = normalizeRole(profile?.role);
+  if (!canEditDetails(order, profile, role)) {
+    notify('Order details can only be edited while Draft or Submitted.', 'warning');
+    renderOrderDetails(orderId, profile);
+    return;
+  }
 
   container.innerHTML = `
     <div class="view">
@@ -518,11 +530,6 @@ export async function renderEditOrder(orderId, profile) {
           </div>
           <div class="field"><label>${t('cr.contact')}</label><input id="contactNumber" class="input" value="${escapeHtml(order.contact_number || '')}"/></div>
           <div class="field"><label>${t('cr.desc')}</label><textarea id="orderDescription" class="textarea" rows="4">${order.order_description || ''}</textarea></div>
-          <div class="field"><label>${t('cr.status')}</label>
-            <select id="orderStatus" class="select">
-              ${STATUSES.map(s => `<option value="${s}" ${order.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-            </select>
-          </div>
           <div class="form-actions">
             <button id="saveEditBtn" class="btn btn-primary">${t('ed.save')}</button>
             <button id="cancelEditBtn2" class="btn btn-ghost">${t('common.cancel')}</button>
@@ -544,21 +551,10 @@ export async function renderEditOrder(orderId, profile) {
       item_order: container.querySelector('#itemOrder').value || null,
       contact_number: container.querySelector('#contactNumber').value.trim(),
       order_description: container.querySelector('#orderDescription').value,
-      status: container.querySelector('#orderStatus').value,
     };
     const { error: updateErr } = await supabase.from('orders').update(updated).eq('id', orderId);
     if (updateErr) { notify(updateErr.message, 'error'); return; }
-    if (updated.status !== order.status) {
-      await recordStatusHistory(orderId, updated.status);
-      try {
-        await sendWhatsAppMessage(updated.contact_number, `[HCSP-OM] Status Order Berubah\n\nOrder   : #ORD-${orderId}\nLayanan : ${updated.order_title}\nStatus  : ${updated.status}\n\nLihat detail di:\n${location.origin}/orders/ORD-${orderId}`);
-        notify(t('ed.updated'), 'success');
-      } catch (err) {
-        notify(`${t('ed.updatedNoWa')}: ${err.message}`, 'warning');
-      }
-    } else {
-      notify('Order updated successfully.', 'success');
-    }
+    notify('Order updated successfully.', 'success');
     renderOrderDetails(orderId, profile);
   });
 }

@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { downloadAttachments, formatFileSize, openAttachment } from '../utils/report-files.js';
+import { deleteAttachmentFiles, downloadAttachments, formatFileSize, openAttachment } from '../utils/report-files.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
 
@@ -22,6 +22,14 @@ function orderTitle(report) {
   return report.orders?.order_title || `Order #${report.order_id}`;
 }
 
+function canExportReports(role) {
+  return ['admin', 'hcam', 'management'].includes(role);
+}
+
+function canDeleteReports(role) {
+  return role === 'admin';
+}
+
 export async function renderWorkReports(profile) {
   const view = document.querySelector('#appContent .view');
   if (!view) return;
@@ -35,7 +43,7 @@ export async function renderWorkReports(profile) {
   `;
 
   const reports = await loadReports(profile);
-  drawReports(view, reports);
+  drawReports(view, reports, profile);
 }
 
 async function loadReports(profile) {
@@ -44,7 +52,15 @@ async function loadReports(profile) {
     .from('work_reports')
     .select(`
       *,
-      orders (id, order_title, status, created_by, business_units (name)),
+      orders (
+        id,
+        order_title,
+        item_order,
+        status,
+        created_by,
+        business_units (name),
+        order_assignments (user_id)
+      ),
       work_report_attachments (*)
     `)
     .order('created_at', { ascending: false });
@@ -57,20 +73,44 @@ async function loadReports(profile) {
   let reports = data || [];
   if (role === 'customer' && profile?.id) {
     reports = reports.filter(r => r.orders?.created_by === profile.id);
+  } else if (role === 'team' && profile?.id) {
+    reports = reports.filter(r => (r.orders?.order_assignments || []).some(a => a.user_id === profile.id));
   }
   return reports;
 }
 
-function drawReports(view, reports) {
+function drawReports(view, reports, profile) {
+  const role = normalizeRole(profile?.role);
   view.innerHTML = `
-    <div class="page-head">
-      <h1>Work Reports</h1>
-      <p>${reports.length} report${reports.length === 1 ? '' : 's'} submitted.</p>
+    <div class="toolbar">
+      <div class="page-head" style="margin:0">
+        <h1>Work Reports</h1>
+        <p>${reports.length} report${reports.length === 1 ? '' : 's'} submitted.</p>
+      </div>
+      ${canExportReports(role) ? `
+        <div class="toolbar-tools">
+          <button class="tool-btn" id="exportReportsExcel">Excel (.xlsx)</button>
+          <button class="tool-btn" id="exportReportsPdf">PDF</button>
+        </div>` : ''}
     </div>
     <div class="panel work-report-panel">
-      ${reports.length ? reports.map(report => reportRow(report)).join('') : '<div class="empty">No work reports submitted yet.</div>'}
+      ${reports.length ? reports.map(report => reportRow(report, role)).join('') : '<div class="empty">No work reports submitted yet.</div>'}
     </div>
   `;
+
+  view.querySelector('#exportReportsExcel')?.addEventListener('click', async () => {
+    if (!reports.length) { notify('No work reports to export.', 'warning'); return; }
+    const exp = await import('../utils/export-reports.js');
+    await exp.exportReportsExcel(reports);
+    notify(`Exported ${reports.length} work report(s).`, 'success');
+  });
+
+  view.querySelector('#exportReportsPdf')?.addEventListener('click', async () => {
+    if (!reports.length) { notify('No work reports to export.', 'warning'); return; }
+    const exp = await import('../utils/export-reports.js');
+    exp.exportReportsPdf(reports);
+    notify(`Exported ${reports.length} work report(s).`, 'success');
+  });
 
   view.querySelectorAll('[data-report-detail]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -90,9 +130,25 @@ function drawReports(view, reports) {
       }
     });
   });
+
+  view.querySelectorAll('[data-report-delete]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const report = reports.find(r => `${r.id}` === btn.dataset.reportDelete);
+      if (!report || !confirm(`Delete report "${report.report_title || report.id}"?`)) return;
+      try {
+        await deleteAttachmentFiles(report.work_report_attachments || []);
+      } catch (err) {
+        notify(`Report deleted from database, but storage cleanup may fail: ${err.message}`, 'warning');
+      }
+      const { error } = await supabase.from('work_reports').delete().eq('id', report.id);
+      if (error) { notify(error.message, 'error'); return; }
+      notify('Work report deleted.', 'success');
+      drawReports(view, reports.filter(r => r.id !== report.id), profile);
+    });
+  });
 }
 
-function reportRow(report) {
+function reportRow(report, role) {
   const attachments = report.work_report_attachments || [];
   return `
     <div class="work-report-row">
@@ -106,6 +162,7 @@ function reportRow(report) {
         <span class="row-sub">${attachments.length} file(s)</span>
         <button class="btn btn-ghost" data-report-detail="${report.id}" style="padding:7px 10px">Lihat detail</button>
         <button class="btn btn-ghost" data-report-download="${report.id}" style="padding:7px 10px" ${attachments.length ? '' : 'disabled'}>Unduh semua</button>
+        ${canDeleteReports(role) ? `<button class="btn btn-ghost" data-report-delete="${report.id}" style="padding:7px 10px;color:var(--danger);border-color:rgba(255,107,107,.3)">Delete</button>` : ''}
       </div>
     </div>
   `;
