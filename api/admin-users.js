@@ -16,6 +16,37 @@ function getBearer(req) {
   return (req.headers.authorization || '').replace('Bearer ', '').trim();
 }
 
+function normalizeSupabaseUrl(value) {
+  const raw = (value || '').trim().replace(/^['"]|['"]$/g, '');
+  if (!raw) return '';
+
+  const dashboardMatch = raw.match(/supabase\.com\/(?:dashboard\/)?project\/([a-z0-9-]+)/i);
+  if (dashboardMatch?.[1]) return `https://${dashboardMatch[1]}.supabase.co`;
+
+  if (/^[a-z0-9-]+\.supabase\.co(?:\/.*)?$/i.test(raw)) {
+    return new URL(`https://${raw}`).origin;
+  }
+
+  if (/^[a-z0-9]{15,30}$/i.test(raw)) {
+    return `https://${raw}.supabase.co`;
+  }
+
+  try {
+    const url = new URL(raw);
+    return url.origin;
+  } catch (_) {
+    return raw.replace(/\/+$/, '');
+  }
+}
+
+function cleanEnv(value) {
+  return (value || '').trim().replace(/^['"]|['"]$/g, '');
+}
+
+function safeHost(value) {
+  try { return new URL(value).host; } catch (_) { return value || '(empty)'; }
+}
+
 function sanitizeUser(row) {
   if (!row) return row;
   return {
@@ -77,7 +108,9 @@ async function createManagedUser(adminClient, body) {
 }
 
 async function requireAdmin(req) {
-  const { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+  const SUPABASE_URL = normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+  const SUPABASE_ANON_KEY = cleanEnv(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+  const SUPABASE_SERVICE_ROLE_KEY = cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
     return { error: { status: 500, message: 'Missing admin environment variables' } };
   }
@@ -89,7 +122,14 @@ async function requireAdmin(req) {
   const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const { data: { user }, error: authError } = await authClient.auth.getUser(jwt);
-  if (authError || !user) return { error: { status: 401, message: 'Invalid or expired session' } };
+  if (authError || !user) {
+    return {
+      error: {
+        status: 401,
+        message: `Invalid or expired session. Admin API is validating against ${safeHost(SUPABASE_URL)}. Make sure SUPABASE_URL/SUPABASE_ANON_KEY match the same project as VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY. ${authError?.message ? `Supabase said: ${authError.message}` : ''}`.trim(),
+      },
+    };
+  }
 
   const { data: profile, error: profileError } = await adminClient
     .from('users')

@@ -10,12 +10,46 @@ function normalizeWhatsappTarget(value) {
   return digits;
 }
 
+function normalizeSupabaseUrl(value) {
+  const raw = (value || '').trim().replace(/^['"]|['"]$/g, '');
+  if (!raw) return '';
+
+  const dashboardMatch = raw.match(/supabase\.com\/(?:dashboard\/)?project\/([a-z0-9-]+)/i);
+  if (dashboardMatch?.[1]) return `https://${dashboardMatch[1]}.supabase.co`;
+
+  if (/^[a-z0-9-]+\.supabase\.co(?:\/.*)?$/i.test(raw)) {
+    return new URL(`https://${raw}`).origin;
+  }
+
+  if (/^[a-z0-9]{15,30}$/i.test(raw)) {
+    return `https://${raw}.supabase.co`;
+  }
+
+  try {
+    const url = new URL(raw);
+    return url.origin;
+  } catch (_) {
+    return raw.replace(/\/+$/, '');
+  }
+}
+
+function cleanEnv(value) {
+  return (value || '').trim().replace(/^['"]|['"]$/g, '');
+}
+
+function safeHost(value) {
+  try { return new URL(value).host; } catch (_) { return value || '(empty)'; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, FONNTE_TOKEN } = process.env;
+  const SUPABASE_URL = normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+  const SUPABASE_ANON_KEY = cleanEnv(process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+  const SUPABASE_SERVICE_ROLE_KEY = cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const FONNTE_TOKEN = cleanEnv(process.env.FONNTE_TOKEN);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !FONNTE_TOKEN) {
     return res.status(500).json({ error: 'Missing server environment variables' });
   }
@@ -26,7 +60,11 @@ export default async function handler(req, res) {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: { user }, error: authErr } = await supabase.auth.getUser(jwt);
-  if (authErr || !user) return res.status(401).json({ error: 'Invalid or expired session' });
+  if (authErr || !user) {
+    return res.status(401).json({
+      error: `Invalid or expired session. WhatsApp API is validating against ${safeHost(SUPABASE_URL)}. Make sure server Supabase env vars match the browser Supabase env vars. ${authErr?.message ? `Supabase said: ${authErr.message}` : ''}`.trim(),
+    });
+  }
 
   // 2) Validate input
   const { target, recipientId, message } = req.body || {};
