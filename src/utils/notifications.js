@@ -3,7 +3,7 @@ import { sendWhatsAppMessage } from './whatsapp.js';
 
 // Logs an in-app notification row and (best-effort) sends a WhatsApp to the
 // recipient's own phone (users.phone). WA failure never blocks the DB log.
-export async function createNotification({ recipientId, orderId, type, title, body, whatsapp = true }) {
+export async function createNotification({ recipientId, recipientPhone, orderId, type, title, body, whatsapp = true }) {
   if (!recipientId) {
     console.warn('[notify] skipped — no recipient', { orderId, type });
     return { logged: false, waSent: false, reason: 'no-recipient' };
@@ -20,13 +20,22 @@ export async function createNotification({ recipientId, orderId, type, title, bo
   if (error) console.error('[notify] insert failed:', error.message, error);
 
   let waSent = false;
+  let waError = '';
+  let phone = recipientPhone;
   if (whatsapp) {
-    const { data: u } = await supabase.from('users').select('phone').eq('id', recipientId).single();
-    if (u?.phone) {
-      try { await sendWhatsAppMessage(u.phone, body); waSent = true; } catch (_) { /* non-blocking */ }
+    if (!phone) {
+      const { data: u } = await supabase.from('users').select('phone').eq('id', recipientId).single();
+      phone = u?.phone;
+    }
+    try {
+      await sendWhatsAppMessage(phone || '', body, { recipientId });
+      waSent = true;
+    } catch (err) {
+      waError = err.message || 'WhatsApp request failed';
+      console.warn('[notify] WhatsApp send failed:', err.message, { recipientId, orderId, type, phone });
     }
   }
-  return { logged: !error, waSent };
+  return { logged: !error, waSent, waError, phone };
 }
 
 // Reads the current user's notifications (RLS already restricts to their own rows).

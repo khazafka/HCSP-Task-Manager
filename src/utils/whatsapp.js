@@ -3,7 +3,7 @@ import { supabase } from '../supabase.js';
 
 // Sends a WhatsApp message via our server-side proxy (/api/send-wa).
 // The Fonnte token never reaches the browser.
-export const sendWhatsAppMessage = async (target, message) => {
+export const sendWhatsAppMessage = async (target, message, options = {}) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -13,10 +13,13 @@ export const sendWhatsAppMessage = async (target, message) => {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ target, message }),
+    body: JSON.stringify({ target, recipientId: options.recipientId, message }),
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Failed to send WhatsApp message');
+  if (!res.ok) {
+    const detail = data.data?.reason || data.data?.detail || data.data?.message || data.error;
+    throw new Error(detail || 'Failed to send WhatsApp message');
+  }
   return data;
 };

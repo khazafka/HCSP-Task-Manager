@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { renderOrderDetails } from './order-detail.js';
 import { sendWhatsAppMessage } from '../utils/whatsapp.js';
+import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
 
@@ -22,6 +23,99 @@ function pillClass(status) {
   if (s.includes('complete') || s.includes('closed')) return 'pill-green';
   if (s.includes('progress') || s.includes('assign') || s.includes('review')) return 'pill-amber';
   return 'pill-dim';
+}
+
+function escapeHtml(value) {
+  return (value ?? '').toString().replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
+}
+
+async function fetchContactUsers() {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, full_name, email, role, phone, unit_bisnis')
+    .order('full_name', { ascending: true });
+
+  if (error) {
+    console.warn('[orders] unable to load user contacts:', error.message);
+    return [];
+  }
+
+  return (data || []).filter(u => (u.phone || '').trim());
+}
+
+function contactOptions(users, selectedPhone = '') {
+  const selected = (selectedPhone || '').trim();
+  const hasSelected = users.some(u => (u.phone || '').trim() === selected);
+
+  return `
+    <option value="">Select contact from users...</option>
+    ${users.map(u => {
+      const phone = (u.phone || '').trim();
+      const label = `${u.full_name || u.email || 'Unnamed user'} - ${phone}`;
+      return `<option value="${escapeHtml(phone)}" ${phone === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('')}
+    ${selected && !hasSelected ? `<option value="${escapeHtml(selected)}" selected>Current number - ${escapeHtml(selected)}</option>` : ''}
+  `;
+}
+
+async function notifyHcamOrderSubmitted(order, businessUnitName, creatorName) {
+  const contacts = await fetchContactUsers();
+  const allHcams = contacts.filter(u => normalizeRole(u.role) === 'hcam');
+  const unitKey = (businessUnitName || '').trim().toLowerCase();
+  const relatedHcams = unitKey
+    ? allHcams.filter(u => (u.unit_bisnis || '').trim().toLowerCase() === unitKey)
+    : [];
+  const hcams = relatedHcams.length ? relatedHcams : allHcams;
+
+  if (!hcams.length) {
+    notify('Order submitted, but no HCAM user with a phone number was found.', 'warning');
+    return;
+  }
+
+  const body = `[HCSP-OM] Order Baru Masuk\n\nOrder   : #ORD-${order.id}\nLayanan : ${order.order_title || '-'}\nCustomer: ${creatorName || '-'}\nUnit    : ${businessUnitName || '-'}\nStatus  : ${order.status}\n\nSilakan review order di:\n${location.origin}/orders/ORD-${order.id}`;
+
+  let sent = 0;
+  let lastError = '';
+  for (const hcam of hcams) {
+    const res = await createNotification({
+      recipientId: hcam.id,
+      recipientPhone: hcam.phone,
+      orderId: order.id,
+      type: 'order_submitted',
+      title: 'Order baru masuk',
+      body,
+    });
+    if (res.waSent) {
+      sent++;
+      continue;
+    }
+    if (res.waError) lastError = res.waError;
+    try {
+      await sendWhatsAppMessage(hcam.phone, body);
+      sent++;
+    } catch (err) {
+      lastError = err.message || lastError;
+      console.warn('[orders] WhatsApp send failed:', err.message, hcam.phone);
+      // Keep notifying the remaining HCAM users.
+    }
+  }
+
+  if (sent) notify(`Order submitted and WhatsApp sent to ${sent} HCAM user${sent > 1 ? 's' : ''}.`, 'success');
+  else notify(`Order submitted, but WhatsApp could not be sent${lastError ? `: ${lastError}` : '. Check HCAM phone numbers and Fonnte settings.'}`, 'warning');
+}
+
+async function recordStatusHistory(orderId, status) {
+  try {
+    await supabase.from('order_status_history').insert({ order_id: orderId, status });
+  } catch (_) {
+    // Status history is best-effort here; order save should not be blocked.
+  }
 }
 
 // view + filter state (persisted across re-renders)
@@ -255,7 +349,10 @@ async function deleteOrder(orderId, profile) {
 async function renderCreateOrderForm(profile) {
   const container = document.querySelector('#appContent');
   if (!container) return;
-  const { data: businessUnits } = await supabase.from('business_units').select('*').order('id');
+  const [{ data: businessUnits }, contactUsers] = await Promise.all([
+    supabase.from('business_units').select('*').order('id'),
+    fetchContactUsers(),
+  ]);
 
   container.innerHTML = `
     <div class="view">
@@ -264,6 +361,9 @@ async function renderCreateOrderForm(profile) {
       <div class="form-card">
         <div class="form-grid">
           <div class="field"><label>Order title</label><input id="orderTitle" class="input" placeholder="e.g. Pengisian Formasi — Unit ABC"/></div>
+          <div class="field"><label>Contact person</label>
+            <select id="contactUser" class="select">${contactOptions(contactUsers)}</select>
+          </div>
           <div class="field"><label>Contact number</label><input id="contactNumber" class="input" placeholder="08xxxxxxxxxx"/></div>
           <div class="field"><label>Description</label><textarea id="orderDescription" class="textarea" rows="4"></textarea></div>
           <div class="field"><label>Business unit</label>
@@ -272,7 +372,8 @@ async function renderCreateOrderForm(profile) {
             </select>
           </div>
           <div class="form-actions">
-            <button id="saveOrderBtn" class="btn btn-primary">Save order</button>
+            <button id="saveDraftBtn" class="btn btn-ghost">Save draft</button>
+            <button id="submitOrderBtn" class="btn btn-primary">Submit order</button>
             <button id="cancelBtn2" class="btn btn-ghost">Cancel</button>
           </div>
         </div>
@@ -283,28 +384,47 @@ async function renderCreateOrderForm(profile) {
   const back = () => renderOrders(profile);
   container.querySelector('#cancelBtn').addEventListener('click', back);
   container.querySelector('#cancelBtn2').addEventListener('click', back);
-  container.querySelector('#saveOrderBtn').addEventListener('click', async () => {
+  container.querySelector('#contactUser').addEventListener('change', () => {
+    container.querySelector('#contactNumber').value = container.querySelector('#contactUser').value;
+  });
+
+  async function saveOrder(status) {
+    const businessUnitId = Number(container.querySelector('#businessUnit').value) || null;
+    const businessUnitName = (businessUnits || []).find(u => u.id === businessUnitId)?.name || '';
     const payload = {
-      business_unit_id: Number(container.querySelector('#businessUnit').value) || null,
-      contact_number: container.querySelector('#contactNumber').value,
-      order_title: container.querySelector('#orderTitle').value,
+      business_unit_id: businessUnitId,
+      contact_number: container.querySelector('#contactNumber').value.trim(),
+      order_title: container.querySelector('#orderTitle').value.trim(),
       order_description: container.querySelector('#orderDescription').value,
-      status: 'Draft',
+      status,
       created_by: (await supabase.auth.getUser()).data.user?.id,
     };
     if (!payload.order_title) { notify('Order title is required.', 'warning'); return; }
-    const { error } = await supabase.from('orders').insert(payload);
+    if (!payload.contact_number) { notify('Select a contact person with a phone number.', 'warning'); return; }
+
+    const { data: order, error } = await supabase.from('orders').insert(payload).select('*').single();
     if (error) { notify(error.message, 'error'); return; }
-    notify('Order created successfully.', 'success');
+    await recordStatusHistory(order.id, status);
+    if (status === 'Submitted') {
+      await notifyHcamOrderSubmitted(order, businessUnitName, profile?.full_name || profile?.email);
+    } else {
+      notify('Draft order saved successfully.', 'success');
+    }
     renderOrders(profile);
-  });
+  }
+
+  container.querySelector('#saveDraftBtn').addEventListener('click', () => saveOrder('Draft'));
+  container.querySelector('#submitOrderBtn').addEventListener('click', () => saveOrder('Submitted'));
 }
 
 // --- EDIT ---
 export async function renderEditOrder(orderId, profile) {
   const container = document.querySelector('#appContent');
   if (!container) return;
-  const { data: order, error } = await supabase.from('orders').select('*').eq('id', orderId).single();
+  const [{ data: order, error }, contactUsers] = await Promise.all([
+    supabase.from('orders').select('*').eq('id', orderId).single(),
+    fetchContactUsers(),
+  ]);
   if (error) { notify(error.message, 'error'); return; }
 
   container.innerHTML = `
@@ -314,7 +434,10 @@ export async function renderEditOrder(orderId, profile) {
       <div class="form-card">
         <div class="form-grid">
           <div class="field"><label>Order title</label><input id="orderTitle" class="input" value="${(order.order_title || '').replace(/"/g, '&quot;')}"/></div>
-          <div class="field"><label>Contact number</label><input id="contactNumber" class="input" value="${(order.contact_number || '').replace(/"/g, '&quot;')}"/></div>
+          <div class="field"><label>Contact person</label>
+            <select id="contactUser" class="select">${contactOptions(contactUsers, order.contact_number)}</select>
+          </div>
+          <div class="field"><label>Contact number</label><input id="contactNumber" class="input" value="${escapeHtml(order.contact_number || '')}"/></div>
           <div class="field"><label>Description</label><textarea id="orderDescription" class="textarea" rows="4">${order.order_description || ''}</textarea></div>
           <div class="field"><label>Pipeline status</label>
             <select id="orderStatus" class="select">
@@ -333,20 +456,28 @@ export async function renderEditOrder(orderId, profile) {
   const back = () => renderOrderDetails(orderId, profile);
   container.querySelector('#cancelEditBtn').addEventListener('click', back);
   container.querySelector('#cancelEditBtn2').addEventListener('click', back);
+  container.querySelector('#contactUser').addEventListener('change', () => {
+    container.querySelector('#contactNumber').value = container.querySelector('#contactUser').value;
+  });
   container.querySelector('#saveEditBtn').addEventListener('click', async () => {
     const updated = {
       order_title: container.querySelector('#orderTitle').value,
-      contact_number: container.querySelector('#contactNumber').value,
+      contact_number: container.querySelector('#contactNumber').value.trim(),
       order_description: container.querySelector('#orderDescription').value,
       status: container.querySelector('#orderStatus').value,
     };
     const { error: updateErr } = await supabase.from('orders').update(updated).eq('id', orderId);
     if (updateErr) { notify(updateErr.message, 'error'); return; }
-    try {
-      await sendWhatsAppMessage(updated.contact_number, `🚨 [System Update]\nOrder: ${updated.order_title} (#ORD-${orderId})\nStatus updated to ${updated.status}.`);
-      notify('Order updated and notification sent.', 'success');
-    } catch (_) {
-      notify('Order updated, but WhatsApp notification failed.', 'warning');
+    if (updated.status !== order.status) {
+      await recordStatusHistory(orderId, updated.status);
+      try {
+        await sendWhatsAppMessage(updated.contact_number, `[HCSP-OM] Status Order Berubah\n\nOrder   : #ORD-${orderId}\nLayanan : ${updated.order_title}\nStatus  : ${updated.status}\n\nLihat detail di:\n${location.origin}/orders/ORD-${orderId}`);
+        notify('Order updated and status notification sent.', 'success');
+      } catch (err) {
+        notify(`Order updated, but WhatsApp notification failed: ${err.message}`, 'warning');
+      }
+    } else {
+      notify('Order updated successfully.', 'success');
     }
     renderOrderDetails(orderId, profile);
   });

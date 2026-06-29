@@ -3,6 +3,8 @@ import { supabase } from './supabase.js';
 import { renderLogin } from './pages/login.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { renderOrders } from './pages/order.js';
+import { renderUsers } from './pages/users.js';
+import { renderWorkReports } from './pages/work-reports.js';
 import { initTheme, getTheme, applyTheme } from './utils/theme.js';
 import { notify } from './utils/notify.js';
 import { fetchNotifications, markNotificationsRead } from './utils/notifications.js';
@@ -141,8 +143,8 @@ function renderApp(profile, animate) {
   const routes = {
     dashboard: { title: 'Dashboard', render: () => renderDashboard(profile) },
     orders: { title: 'Orders', render: () => renderOrders(profile) },
-    reports: { title: 'Work Reports', render: () => renderPlaceholder('Work Reports', 'Submitted work reports and attachments appear here.') },
-    users: { title: 'Users', render: () => renderPlaceholder('User Management', 'Create, edit, and assign roles to users.') },
+    reports: { title: 'Work Reports', render: () => renderWorkReports(profile) },
+    users: { title: 'Users', render: () => renderUsers(profile) },
     profile: { title: 'Profile', render: () => renderProfile(profile) },
     settings: { title: 'Settings', render: () => renderSettings() },
   };
