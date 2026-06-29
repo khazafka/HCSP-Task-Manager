@@ -18,6 +18,7 @@ export const ITEM_ORDERS = [
   { code: 'FOR', name: 'Pengisian Formasi' },
   { code: 'INF', name: 'Permintaan Informasi' },
   { code: 'PKA', name: 'Pengembangan Karyawan' },
+  { code: 'OTH', name: 'Others (di luar 7 item di atas)' },
 ];
 function itemOrderOptions(selected = '') {
   return `<option value="">Select service…</option>` +
@@ -26,6 +27,9 @@ function itemOrderOptions(selected = '') {
 export function itemOrderLabel(code) {
   const m = ITEM_ORDERS.find(i => i.code === code);
   return m ? `${m.code} · ${m.name}` : (code || '');
+}
+export function orderUnitName(o) {
+  return o?.business_units?.name || o?.business_unit_other || '—';
 }
 
 const SVG = {
@@ -285,7 +289,7 @@ export async function renderOrders(profile) {
           ${menu(o)}
           <div class="oc-sub"><span class="pill ${pillClass(o.status)}">${o.status || 'Draft'}</span>${o.item_order ? ` <span class="pill pill-dim">${o.item_order}</span>` : ''}</div>
           <div class="oc-meta">
-            <span><b>${t('ord.unit')}:</b> ${o.business_units?.name || '—'}</span>
+            <span><b>${t('ord.unit')}:</b> ${orderUnitName(o)}</span>
             <span><b>${t('ord.contact')}:</b> ${o.contact_number || '—'}</span>
           </div>
         </div>`).join('');
@@ -296,7 +300,7 @@ export async function renderOrders(profile) {
           <div class="oc-row">
             <div class="left">
               <h3>#ORD-${o.id} · ${o.order_title || t('ord.untitled')}</h3>
-              <div class="oc-meta"><span><b>${t('ord.unit')}:</b> ${o.business_units?.name || '—'}</span><span><b>${t('ord.contact')}:</b> ${o.contact_number || '—'}</span></div>
+              <div class="oc-meta"><span><b>${t('ord.unit')}:</b> ${orderUnitName(o)}</span><span><b>${t('ord.contact')}:</b> ${o.contact_number || '—'}</span></div>
             </div>
             <span class="pill ${pillClass(o.status)}" style="margin-right:34px">${o.status || 'Draft'}</span>
           </div>
@@ -478,7 +482,9 @@ async function renderCreateOrderForm(profile) {
           <div class="field"><label>${t('cr.unit')}</label>
             <select id="businessUnit" class="select">
               ${businessUnits.map(u => `<option value="${u.id}" ${u.configured ? '' : 'disabled'}>${u.name}${u.configured ? '' : ' - run SQL seed'}</option>`).join('')}
+              <option value="__other__">${t('cr.unitOther')}</option>
             </select>
+            <input id="businessUnitOther" class="input" style="margin-top:8px;display:none" placeholder="${t('cr.unitOtherPh')}"/>
           </div>
           <div class="form-actions">
             <button id="saveDraftBtn" class="btn btn-ghost">Save draft</button>
@@ -497,11 +503,20 @@ async function renderCreateOrderForm(profile) {
     container.querySelector('#contactNumber').value = container.querySelector('#contactUser').value;
   });
 
+  const buSel = container.querySelector('#businessUnit');
+  const buOther = container.querySelector('#businessUnitOther');
+  const toggleBuOther = () => { buOther.style.display = buSel.value === '__other__' ? 'block' : 'none'; };
+  buSel.addEventListener('change', toggleBuOther);
+  toggleBuOther();
+
   async function saveOrder(status) {
-    const businessUnitId = Number(container.querySelector('#businessUnit').value) || null;
-    const businessUnitName = businessUnits.find(u => u.id === businessUnitId)?.name || '';
+    const isOther = buSel.value === '__other__';
+    const otherName = buOther.value.trim();
+    const businessUnitId = isOther ? null : (Number(buSel.value) || null);
+    const businessUnitName = isOther ? otherName : (businessUnits.find(u => u.id === businessUnitId)?.name || '');
     const payload = {
       business_unit_id: businessUnitId,
+      business_unit_other: isOther ? (otherName || null) : null,
       item_order: container.querySelector('#itemOrder').value || null,
       contact_number: container.querySelector('#contactNumber').value.trim(),
       order_title: container.querySelector('#orderTitle').value.trim(),
@@ -512,7 +527,8 @@ async function renderCreateOrderForm(profile) {
     if (!payload.order_title) { notify(t('cr.titleReq'), 'warning'); return; }
     if (!payload.item_order) { notify('Select a service / item order.', 'warning'); return; }
     if (!payload.contact_number) { notify('Select a contact person with a phone number.', 'warning'); return; }
-    if (!payload.business_unit_id) { notify('Select a valid business unit.', 'warning'); return; }
+    if (isOther && !otherName) { notify('Type the other business unit name.', 'warning'); return; }
+    if (!isOther && !payload.business_unit_id) { notify('Select a valid business unit.', 'warning'); return; }
 
     const { data: order, error } = await supabase.from('orders').insert(payload).select('*').single();
     if (error) { notify(error.message, 'error'); return; }

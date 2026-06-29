@@ -503,6 +503,52 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 /* White text sits on the red accent in both Light and Dark themes */
 .btn-primary, .fab, .bell-badge, .auth-btn-primary { color: #ffffff; }
 
+/* Dropdown / popover entrance animation */
+@keyframes menu-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
+.profile-menu:not([hidden]), .notif-panel:not([hidden]), .lang-menu:not([hidden]),
+.card-menu:not([hidden]), .filter-pop:not([hidden]), .ctx-menu { animation: menu-in 0.16s ease both; }
+
+/* ============================================================
+   LANDING PAGE (public, pre-login)
+   ============================================================ */
+.landing { min-height: 100vh; background: var(--bg); color: var(--text); }
+.lp-nav { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
+.lp-logo { display: flex; align-items: center; gap: 10px; font: 700 18px var(--display); color: var(--text); }
+.lp-mark { width: 32px; height: 32px; border-radius: 9px; background: var(--green); color: #fff; display: flex; align-items: center; justify-content: center; font: 700 13px var(--display); }
+.lp-nav-right { display: flex; align-items: center; gap: 18px; }
+.lp-link { color: var(--text-dim); text-decoration: none; font: 500 14px var(--sans); }
+.lp-link:hover { color: var(--green); }
+.lp-btn { display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 9px 16px; font: 600 14px var(--sans); cursor: pointer; text-decoration: none; transition: background .2s ease, box-shadow .2s ease, border-color .2s ease, transform .12s ease; }
+.lp-btn:active { transform: scale(0.98); }
+.lp-btn-lg { padding: 13px 24px; font-size: 15px; }
+.lp-btn-primary { background: var(--green); color: #fff; }
+.lp-btn-primary:hover { background: var(--green-bright); box-shadow: 0 12px 28px -12px var(--green-line); }
+.lp-btn-ghost { background: transparent; color: var(--text); border-color: var(--line); }
+.lp-btn-ghost:hover { border-color: var(--green-line); color: var(--green); }
+
+.lp-hero { max-width: 820px; margin: 0 auto; text-align: center; padding: 70px 24px 60px; }
+.lp-eyebrow { display: inline-block; font: 600 12px var(--sans); letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); background: var(--green-dim); border: 1px solid var(--green-line); padding: 6px 14px; border-radius: 20px; margin-bottom: 22px; }
+.lp-hero h1 { font: 700 46px/1.1 var(--display); letter-spacing: -1px; color: var(--text); margin: 0 0 18px; }
+.lp-hero p { font-size: 17px; line-height: 1.6; color: var(--text-dim); max-width: 620px; margin: 0 auto 30px; }
+.lp-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+.lp-features { max-width: 1080px; margin: 0 auto; padding: 40px 24px 20px; }
+.lp-features h2 { text-align: center; font: 600 28px var(--display); letter-spacing: -0.5px; margin: 0 0 36px; }
+.lp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.lp-card { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 24px; transition: border-color .2s ease, transform .2s ease; }
+.lp-card:hover { border-color: var(--green-line); transform: translateY(-3px); }
+.lp-ic { width: 46px; height: 46px; border-radius: 11px; background: var(--green-dim); color: var(--green); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.lp-ic svg { width: 23px; height: 23px; }
+.lp-card h3 { font: 600 17px var(--display); color: var(--text); margin: 0 0 8px; }
+.lp-card p { font-size: 14px; line-height: 1.55; color: var(--text-dim); margin: 0; }
+
+.lp-band { max-width: 1080px; margin: 50px auto 0; padding: 48px 24px; text-align: center; }
+.lp-band h2 { font: 700 30px var(--display); letter-spacing: -0.5px; margin: 0 0 8px; color: var(--text); }
+.lp-band p { font-size: 15px; color: var(--text-dim); margin: 0 0 24px; }
+.lp-footer { text-align: center; padding: 32px 24px; color: var(--text-faint); font-size: 13px; border-top: 1px solid var(--line); margin-top: 30px; }
+
+@media (max-width: 600px) { .lp-hero h1 { font-size: 34px; } .lp-hero { padding: 48px 20px 40px; } }
+
 /* Profile page */
 .profile-card { max-width: 560px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .profile-hero { display: flex; align-items: center; gap: 16px; padding: 22px; border-bottom: 1px solid var(--line-soft); }
@@ -559,15 +605,17 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 .filter-clear:hover { color: var(--green); }
 
 .fab {
-  position: fixed; right: 28px; bottom: 28px; z-index: 45;
+  position: fixed; right: 28px; bottom: 28px; z-index: 60;
   display: inline-flex; align-items: center; gap: 8px;
-  background: var(--green); color: #0c1116; border: none; border-radius: var(--radius-sm);
+  background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm);
   padding: 14px 20px; font: 600 14px var(--sans); cursor: pointer;
-  box-shadow: 0 16px 34px -12px rgba(62,229,143,.6);
+  box-shadow: 0 16px 34px -12px var(--green-line);
   transition: transform .15s ease, background .2s ease;
 }
 .fab:hover { background: var(--green-bright); transform: translateY(-2px); }
 .fab svg { width: 18px; height: 18px; }
+/* when the sidebar is docked right, keep the FAB on the content side (left) */
+.app-shell.dock-right .fab { right: auto; left: 28px; }
 
 .orders-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(282px, 1fr)); }
 .orders-list { display: flex; flex-direction: column; gap: 10px; }
@@ -997,6 +1045,9 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 .app-shell.collapsed .nav-section,
 .app-shell.collapsed .nav-foot { display: none; }
 .app-shell.collapsed .nav-item span:not(.avatar) { opacity: 0; }
+/* center the icons + avatar when collapsed to an icon rail */
+.app-shell.collapsed .nav-item { justify-content: center; gap: 0; }
+.app-shell.collapsed .nav-item span:not(.avatar) { width: 0; overflow: hidden; }
 .app-shell.collapsed .sidebar-top { justify-content: center; border-bottom: none; padding-bottom: 8px; }
 
 .app-shell.dock-right { flex-direction: row-reverse; }

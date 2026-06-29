@@ -1,6 +1,7 @@
 import './style.css';
 import { supabase } from './supabase.js';
 import { renderLogin } from './pages/login.js';
+import { renderLanding } from './pages/landing.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { renderOrders } from './pages/order.js';
 import { renderUsers } from './pages/users.js';
@@ -73,11 +74,13 @@ async function initApp() {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
-    renderLogin(async () => {
+    const goLogin = () => renderLogin(async () => {
       const { data: { session: s } } = await supabase.auth.getSession();
       const profile = await fetchProfile(s);
       renderApp(profile, true);
     });
+    // Public landing page first; its CTA opens the login screen.
+    renderLanding(goLogin);
     return;
   }
 

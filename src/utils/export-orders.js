@@ -9,7 +9,7 @@ function rowFor(o) {
     `#ORD-${o.id}`,
     o.order_title || '',
     o.item_order || '',
-    o.business_units?.name || '',
+    o.business_units?.name || o.business_unit_other || '',
     o.status || '',
     o.contact_number || '',
     o.created_at ? new Date(o.created_at).toLocaleDateString() : '',

@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { renderOrders, renderEditOrder, itemOrderLabel } from './order.js';
+import { renderOrders, renderEditOrder, itemOrderLabel, orderUnitName } from './order.js';
 import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
@@ -260,7 +260,7 @@ export async function renderOrderDetails(orderId, profile) {
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line-soft);padding-bottom:14px;margin-bottom:14px">
               <div>
                 <h1 style="font-size:22px;margin:0">${order.order_title || t('ord.untitled')}</h1>
-                <p style="font-size:12px;color:var(--text-dim);margin-top:4px">${t('cr.unit')} · ${order.business_units?.name ?? '—'}${order.item_order ? ` &nbsp;·&nbsp; ${itemOrderLabel(order.item_order)}` : ''}</p>
+                <p style="font-size:12px;color:var(--text-dim);margin-top:4px">${t('cr.unit')} · ${orderUnitName(order)}${order.item_order ? ` &nbsp;·&nbsp; ${itemOrderLabel(order.item_order)}` : ''}</p>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 ${canEdit ? `<button class="btn btn-ghost" id="editBtn" style="padding:8px 12px">${t('ord.edit')}</button>` : ''}
