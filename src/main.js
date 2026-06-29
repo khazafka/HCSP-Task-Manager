@@ -235,15 +235,6 @@ async function swapView(renderFn) {
 
 /* ---------------- Simple themed pages ---------------- */
 
-function renderPlaceholder(title, sub) {
-  const view = document.querySelector('#appContent .view');
-  if (!view) return;
-  view.innerHTML = `
-    <div class="page-head"><h1>${title}</h1><p>${sub}</p></div>
-    <div class="placeholder-card">${t('ph.soon')}</div>
-  `;
-}
-
 function setupLang() {
   const btn = document.querySelector('#langBtn');
   const menu = document.querySelector('#langMenu');
@@ -407,7 +398,6 @@ function renderSettings() {
   if (!view) return;
   const sun = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
   const moon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
-  const corp = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 9h8M12 9v7"/></svg>`;
   const globe = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z"/></svg>`;
   const current = getTheme();
   const lang = getLang();
@@ -418,7 +408,6 @@ function renderSettings() {
       <h3>${t('set.theme')}</h3>
       <p>${t('set.themeSub')}</p>
       <div class="theme-toggle" id="themeToggle">
-        <button data-theme-val="telkom" class="${current === 'telkom' ? 'active' : ''}">${corp} Telkom</button>
         <button data-theme-val="light" class="${current === 'light' ? 'active' : ''}">${sun} Light</button>
         <button data-theme-val="dark" class="${current === 'dark' ? 'active' : ''}">${moon} Dark</button>
       </div>
@@ -440,8 +429,15 @@ function renderSettings() {
   view.querySelectorAll('#themeToggle button').forEach(btn => {
     btn.addEventListener('click', () => {
       const val = btn.dataset.themeVal;
-      applyTheme(val);
+      if (val === getTheme()) return;
       view.querySelectorAll('#themeToggle button').forEach(b => b.classList.toggle('active', b === btn));
+      // cool blur transition: blur out → swap theme at peak → blur back in
+      const app = document.querySelector('#app');
+      app.style.transition = 'filter 0.28s ease, opacity 0.28s ease';
+      app.style.filter = 'blur(16px)';
+      app.style.opacity = '0.55';
+      setTimeout(() => { applyTheme(val); app.style.filter = 'blur(0px)'; app.style.opacity = '1'; }, 280);
+      setTimeout(() => { app.style.transition = ''; app.style.filter = ''; app.style.opacity = ''; }, 640);
       notify(`Switched to ${val} mode.`, 'success', { title: 'Theme updated' });
     });
   });
@@ -451,15 +447,30 @@ function renderProfile(profile) {
   const view = document.querySelector('#appContent .view');
   if (!view) return;
   const role = normalizeRole(profile?.role);
+  const name = profile?.full_name || profile?.email || 'User';
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const row = (label, value) => `<div class="pf-row"><span class="pf-k">${label}</span><span class="pf-v">${value || '—'}</span></div>`;
+
   view.innerHTML = `
     <div class="page-head"><h1>${t('prof.title')}</h1><p>${t('prof.sub')}</p></div>
-    <div class="cards-grid">
-      <div class="metric"><span class="metric-label">${t('prof.name')}</span><span class="metric-value" style="font-size:18px">${profile?.full_name || '-'}</span></div>
-      <div class="metric"><span class="metric-label">${t('prof.email')}</span><span class="metric-value" style="font-size:18px">${profile?.email || '-'}</span></div>
-      <div class="metric"><span class="metric-label">${t('prof.role')}</span><span class="metric-value" style="font-size:18px;text-transform:uppercase">${role}</span></div>
+
+    <div class="profile-card">
+      <div class="profile-hero">
+        <div class="pf-avatar">${initials}</div>
+        <div class="pf-id">
+          <div class="pf-name">${name}</div>
+          <div class="pf-role"><span class="pill pill-green" style="text-transform:capitalize">${role}</span></div>
+        </div>
+      </div>
+      <div class="pf-details">
+        ${row(t('prof.email'), profile?.email)}
+        ${row('Phone', profile?.phone)}
+        ${row('Unit bisnis', profile?.unit_bisnis)}
+        ${row(t('prof.role'), `<span style="text-transform:capitalize">${role}</span>`)}
+      </div>
     </div>
 
-    <div class="settings-section" style="margin-top:18px">
+    <div class="settings-section" style="margin-top:16px">
       <h3>${t('prof.security')}</h3>
       <p>${t('prof.changePass')}</p>
       <div class="form-grid" style="max-width:360px">

@@ -97,7 +97,10 @@ async function requireAdmin(req) {
     .eq('id', user.id)
     .single();
 
-  if (profileError || normalizeRole(profile?.role) !== 'admin') {
+  if (profileError) {
+    return { error: { status: 500, message: `Could not verify your role — check SUPABASE_SERVICE_ROLE_KEY in .env (${profileError.message})` } };
+  }
+  if (normalizeRole(profile?.role) !== 'admin') {
     return { error: { status: 403, message: 'Admin access required' } };
   }
 

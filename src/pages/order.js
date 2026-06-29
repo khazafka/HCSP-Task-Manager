@@ -8,6 +8,24 @@ import { t } from '../utils/i18n.js';
 
 const STATUSES = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
 
+export const ITEM_ORDERS = [
+  { code: 'PRO', name: 'Promosi' },
+  { code: 'MUT', name: 'Mutasi' },
+  { code: 'PGS', name: 'PGS (Pejabat Ganti Sementara)' },
+  { code: 'DIK', name: 'Pendidikan / Pelatihan' },
+  { code: 'FOR', name: 'Pengisian Formasi' },
+  { code: 'INF', name: 'Permintaan Informasi' },
+  { code: 'PKA', name: 'Pengembangan Karyawan' },
+];
+function itemOrderOptions(selected = '') {
+  return `<option value="">Select service…</option>` +
+    ITEM_ORDERS.map(i => `<option value="${i.code}" ${i.code === selected ? 'selected' : ''}>${i.code} — ${i.name}</option>`).join('');
+}
+export function itemOrderLabel(code) {
+  const m = ITEM_ORDERS.find(i => i.code === code);
+  return m ? `${m.code} · ${m.name}` : (code || '');
+}
+
 const SVG = {
   grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
   list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>`,
@@ -17,6 +35,7 @@ const SVG = {
   edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>`,
   trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
   plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
 };
 
 function pillClass(status) {
@@ -121,7 +140,7 @@ async function recordStatusHistory(orderId, status) {
 
 // view + filter state (persisted across re-renders)
 let view = localStorage.getItem('orders-view') || 'grid';
-const filters = { sort: 'newest', statuses: [], unit: '' };
+const filters = { sort: 'newest', statuses: [], items: [], unit: '' };
 
 export async function renderOrders(profile) {
   const container = document.querySelector('#appContent');
@@ -137,7 +156,14 @@ export async function renderOrders(profile) {
   let orders = data || [];
 
   // role-based visibility
-  if (role === 'customer' && profile?.id) orders = orders.filter(o => o.created_by === profile.id);
+  if (role === 'customer' && profile?.id) {
+    orders = orders.filter(o => o.created_by === profile.id);
+  } else if (role === 'team' && profile?.id) {
+    // Team Solution only sees orders assigned to them (via order_assignments).
+    const { data: asn } = await supabase.from('order_assignments').select('order_id').eq('user_id', profile.id);
+    const assigned = new Set((asn || []).map(a => a.order_id));
+    orders = orders.filter(o => assigned.has(o.id));
+  }
 
   const units = [...new Set(orders.map(o => o.business_units?.name).filter(Boolean))];
 
@@ -154,6 +180,14 @@ export async function renderOrders(profile) {
             <button data-view="list" class="${view === 'list' ? 'active' : ''}" aria-label="List view">${SVG.list}</button>
           </div>
           <button class="tool-btn" id="filterBtn">${SVG.filter}<span>${t('ord.filter')}</span></button>
+          ${can('exportReport', role) ? `
+          <div class="export-wrap">
+            <button class="tool-btn" id="exportBtn">${SVG.download}<span>${t('ord.export')}</span></button>
+            <div class="lang-menu" id="exportMenu" hidden>
+              <button data-exp="excel">${t('ord.exportExcel')}</button>
+              <button data-exp="pdf">${t('ord.exportPdf')}</button>
+            </div>
+          </div>` : ''}
           <div class="filter-pop" id="filterPop" hidden>
             <div class="filter-group">
               <h5>${t('ord.sort')}</h5>
@@ -168,6 +202,12 @@ export async function renderOrders(profile) {
               <h5>${t('ord.lifecycle')}</h5>
               <div class="chip-row" data-group="status">
                 ${STATUSES.map(s => `<button class="chip" data-val="${s}">${s}</button>`).join('')}
+              </div>
+            </div>
+            <div class="filter-group">
+              <h5>${t('ord.service')}</h5>
+              <div class="chip-row" data-group="item">
+                ${ITEM_ORDERS.map(i => `<button class="chip" data-val="${i.code}" title="${i.name}">${i.code}</button>`).join('')}
               </div>
             </div>
             ${units.length ? `
@@ -193,6 +233,7 @@ export async function renderOrders(profile) {
   function applyFilters(list) {
     let out = [...list];
     if (filters.statuses.length) out = out.filter(o => filters.statuses.includes(o.status));
+    if (filters.items.length) out = out.filter(o => filters.items.includes(o.item_order));
     if (filters.unit) out = out.filter(o => o.business_units?.name === filters.unit);
     const byTitle = (a, b) => (a.order_title || '').localeCompare(b.order_title || '');
     if (filters.sort === 'az') out.sort(byTitle);
@@ -224,7 +265,7 @@ export async function renderOrders(profile) {
             <h3>#ORD-${o.id} · ${o.order_title || t('ord.untitled')}</h3>
           </div>
           ${menu(o)}
-          <div class="oc-sub"><span class="pill ${pillClass(o.status)}">${o.status || 'Draft'}</span></div>
+          <div class="oc-sub"><span class="pill ${pillClass(o.status)}">${o.status || 'Draft'}</span>${o.item_order ? ` <span class="pill pill-dim">${o.item_order}</span>` : ''}</div>
           <div class="oc-meta">
             <span><b>${t('ord.unit')}:</b> ${o.business_units?.name || '—'}</span>
             <span><b>${t('ord.contact')}:</b> ${o.contact_number || '—'}</span>
@@ -308,6 +349,7 @@ export async function renderOrders(profile) {
   // reflect current sort selection
   filterPop.querySelector(`[data-group="sort"] [data-val="${filters.sort}"]`)?.classList.add('active');
   filters.statuses.forEach(s => filterPop.querySelector(`[data-group="status"] [data-val="${s}"]`)?.classList.add('active'));
+  filters.items.forEach(s => filterPop.querySelector(`[data-group="item"] [data-val="${s}"]`)?.classList.add('active'));
   filterPop.querySelectorAll('.chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const group = chip.closest('.chip-row').dataset.group;
@@ -319,6 +361,11 @@ export async function renderOrders(profile) {
         const v = chip.dataset.val;
         if (filters.statuses.includes(v)) filters.statuses = filters.statuses.filter(x => x !== v);
         else filters.statuses.push(v);
+      } else if (group === 'item') {
+        chip.classList.toggle('active');
+        const v = chip.dataset.val;
+        if (filters.items.includes(v)) filters.items = filters.items.filter(x => x !== v);
+        else filters.items.push(v);
       } else if (group === 'unit') {
         const v = chip.dataset.val;
         filters.unit = filters.unit === v ? '' : v;
@@ -328,11 +375,34 @@ export async function renderOrders(profile) {
     });
   });
   container.querySelector('#filterClear').addEventListener('click', () => {
-    filters.sort = 'newest'; filters.statuses = []; filters.unit = '';
+    filters.sort = 'newest'; filters.statuses = []; filters.items = []; filters.unit = '';
     filterPop.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
     filterPop.querySelector('[data-group="sort"] [data-val="newest"]')?.classList.add('active');
     draw();
   });
+
+  // Export (PDF / Excel) — exports the currently filtered list
+  const exportBtn = container.querySelector('#exportBtn');
+  if (exportBtn) {
+    const exportMenu = container.querySelector('#exportMenu');
+    exportBtn.addEventListener('click', (e) => { e.stopPropagation(); exportMenu.toggleAttribute('hidden'); });
+    document.addEventListener('click', (e) => {
+      if (!exportMenu.hasAttribute('hidden') && !exportMenu.contains(e.target) && !exportBtn.contains(e.target)) exportMenu.setAttribute('hidden', '');
+    });
+    exportMenu.querySelectorAll('[data-exp]').forEach(b => b.addEventListener('click', async () => {
+      exportMenu.setAttribute('hidden', '');
+      const rows = applyFilters(orders);
+      if (!rows.length) { notify('No orders to export.', 'warning'); return; }
+      try {
+        const exp = await import('../utils/export-orders.js'); // lazy-load heavy libs
+        if (b.dataset.exp === 'excel') await exp.exportOrdersExcel(rows);
+        else exp.exportOrdersPdf(rows);
+        notify(`Exported ${rows.length} order(s).`, 'success');
+      } catch (err) {
+        notify(`Export failed: ${err.message}`, 'error');
+      }
+    }));
+  }
 
   // FAB
   container.querySelector('#createFab')?.addEventListener('click', () => renderCreateOrderForm(profile));
@@ -362,6 +432,9 @@ async function renderCreateOrderForm(profile) {
       <div class="form-card">
         <div class="form-grid">
           <div class="field"><label>${t('cr.orderTitle')}</label><input id="orderTitle" class="input" placeholder="e.g. Pengisian Formasi - Unit ABC"/></div>
+          <div class="field"><label>${t('cr.itemOrder')}</label>
+            <select id="itemOrder" class="select">${itemOrderOptions()}</select>
+          </div>
           <div class="field"><label>Contact person</label>
             <select id="contactUser" class="select">${contactOptions(contactUsers)}</select>
           </div>
@@ -394,6 +467,7 @@ async function renderCreateOrderForm(profile) {
     const businessUnitName = (businessUnits || []).find(u => u.id === businessUnitId)?.name || '';
     const payload = {
       business_unit_id: businessUnitId,
+      item_order: container.querySelector('#itemOrder').value || null,
       contact_number: container.querySelector('#contactNumber').value.trim(),
       order_title: container.querySelector('#orderTitle').value.trim(),
       order_description: container.querySelector('#orderDescription').value,
@@ -401,6 +475,7 @@ async function renderCreateOrderForm(profile) {
       created_by: (await supabase.auth.getUser()).data.user?.id,
     };
     if (!payload.order_title) { notify(t('cr.titleReq'), 'warning'); return; }
+    if (!payload.item_order) { notify('Select a service / item order.', 'warning'); return; }
     if (!payload.contact_number) { notify('Select a contact person with a phone number.', 'warning'); return; }
 
     const { data: order, error } = await supabase.from('orders').insert(payload).select('*').single();
@@ -435,6 +510,9 @@ export async function renderEditOrder(orderId, profile) {
       <div class="form-card">
         <div class="form-grid">
           <div class="field"><label>${t('cr.orderTitle')}</label><input id="orderTitle" class="input" value="${(order.order_title || '').replace(/"/g, '&quot;')}"/></div>
+          <div class="field"><label>${t('cr.itemOrder')}</label>
+            <select id="itemOrder" class="select">${itemOrderOptions(order.item_order || '')}</select>
+          </div>
           <div class="field"><label>Contact person</label>
             <select id="contactUser" class="select">${contactOptions(contactUsers, order.contact_number)}</select>
           </div>
@@ -463,6 +541,7 @@ export async function renderEditOrder(orderId, profile) {
   container.querySelector('#saveEditBtn').addEventListener('click', async () => {
     const updated = {
       order_title: container.querySelector('#orderTitle').value,
+      item_order: container.querySelector('#itemOrder').value || null,
       contact_number: container.querySelector('#contactNumber').value.trim(),
       order_description: container.querySelector('#orderDescription').value,
       status: container.querySelector('#orderStatus').value,

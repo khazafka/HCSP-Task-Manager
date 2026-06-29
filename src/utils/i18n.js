@@ -61,16 +61,17 @@ const DICT = {
     // orders list
     'ord.title': 'Orders', 'ord.sub': 'Track and manage Human Capital service requests.',
     'ord.filter': 'Filter', 'ord.sort': 'Sort', 'ord.az': 'A–Z', 'ord.za': 'Z–A', 'ord.newest': 'Newest', 'ord.oldest': 'Oldest',
-    'ord.lifecycle': 'Life cycle / pipeline', 'ord.teamUnit': 'Team / business unit', 'ord.clear': 'Clear all filters',
+    'ord.lifecycle': 'Life cycle / pipeline', 'ord.service': 'Service / jenis', 'ord.teamUnit': 'Team / business unit', 'ord.clear': 'Clear all filters',
     'ord.noMatch': 'No orders match your filters', 'ord.noMatchCta': ' — create one with the button below.',
     'ord.unit': 'Unit', 'ord.contact': 'Contact', 'ord.untitled': 'Untitled order',
     'ord.view': 'View', 'ord.edit': 'Edit', 'ord.delete': 'Delete', 'ord.createBtn': 'Create order',
+    'ord.export': 'Export', 'ord.exportExcel': 'Excel (.xlsx)', 'ord.exportPdf': 'PDF',
     'ord.deleteConfirm': 'Delete order', 'ord.deleted': 'deleted.',
 
     // create / edit
     'cr.title': 'Create order', 'cr.sub': 'Submit a new Human Capital service request.', 'cr.back': 'Back to orders',
     'cr.orderTitle': 'Order title', 'cr.contact': 'Contact number', 'cr.desc': 'Description',
-    'cr.unit': 'Business unit', 'cr.status': 'Pipeline status', 'cr.save': 'Save order',
+    'cr.unit': 'Business unit', 'cr.status': 'Pipeline status', 'cr.save': 'Save order', 'cr.itemOrder': 'Service / item order',
     'cr.titleReq': 'Order title is required.', 'cr.created': 'Order created successfully.',
     'ed.title': 'Edit order', 'ed.sub': 'Update request details and pipeline status.', 'ed.save': 'Save changes',
     'ed.updated': 'Order updated and notification sent.', 'ed.updatedNoWa': 'Order updated, but WhatsApp notification failed.',
@@ -141,15 +142,16 @@ const DICT = {
 
     'ord.title': 'Order', 'ord.sub': 'Pantau dan kelola permintaan layanan Human Capital.',
     'ord.filter': 'Filter', 'ord.sort': 'Urutkan', 'ord.az': 'A–Z', 'ord.za': 'Z–A', 'ord.newest': 'Terbaru', 'ord.oldest': 'Terlama',
-    'ord.lifecycle': 'Siklus / pipeline', 'ord.teamUnit': 'Tim / unit bisnis', 'ord.clear': 'Hapus semua filter',
+    'ord.lifecycle': 'Siklus / pipeline', 'ord.service': 'Layanan / jenis', 'ord.teamUnit': 'Tim / unit bisnis', 'ord.clear': 'Hapus semua filter',
     'ord.noMatch': 'Tidak ada order yang cocok dengan filter', 'ord.noMatchCta': ' — buat satu dengan tombol di bawah.',
     'ord.unit': 'Unit', 'ord.contact': 'Kontak', 'ord.untitled': 'Order tanpa judul',
     'ord.view': 'Lihat', 'ord.edit': 'Ubah', 'ord.delete': 'Hapus', 'ord.createBtn': 'Buat Order',
+    'ord.export': 'Ekspor', 'ord.exportExcel': 'Excel (.xlsx)', 'ord.exportPdf': 'PDF',
     'ord.deleteConfirm': 'Hapus order', 'ord.deleted': 'dihapus.',
 
     'cr.title': 'Buat Order', 'cr.sub': 'Ajukan permintaan layanan Human Capital baru.', 'cr.back': 'Kembali ke Order',
     'cr.orderTitle': 'Judul order', 'cr.contact': 'Nomor kontak', 'cr.desc': 'Deskripsi',
-    'cr.unit': 'Unit bisnis', 'cr.status': 'Status pipeline', 'cr.save': 'Simpan Order',
+    'cr.unit': 'Unit bisnis', 'cr.status': 'Status pipeline', 'cr.save': 'Simpan Order', 'cr.itemOrder': 'Layanan / item order',
     'cr.titleReq': 'Judul order wajib diisi.', 'cr.created': 'Order berhasil dibuat.',
     'ed.title': 'Ubah Order', 'ed.sub': 'Perbarui detail permintaan dan status pipeline.', 'ed.save': 'Simpan Perubahan',
     'ed.updated': 'Order diperbarui dan notifikasi terkirim.', 'ed.updatedNoWa': 'Order diperbarui, tetapi notifikasi WhatsApp gagal.',

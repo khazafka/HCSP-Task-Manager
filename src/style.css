@@ -3,7 +3,42 @@
    ============================================================ */
 
 :root {
-  /* Dark, but intentionally not pitch black */
+  /* DEFAULT = Telkom Light (white + red). Dark variant overrides below. */
+  --bg: #f5f6f8;
+  --bg-2: #ffffff;
+  --bg-3: #f0f2f5;
+  --line: #e6e8ec;
+  --line-soft: #eef0f3;
+
+  --text: #1f2430;
+  --text-dim: #5b6472;
+  --text-faint: #8a93a0;
+
+  /* Telkom red accent (var still named --green; used app-wide as "accent") */
+  --green: #E31E24;
+  --green-bright: #b71419;
+  --green-dim: rgba(227, 30, 36, 0.10);
+  --green-line: rgba(227, 30, 36, 0.35);
+
+  --danger: #dc2626;
+  --amber: #d97706;
+
+  --header-bg: rgba(255, 255, 255, 0.85);
+
+  --radius: 7px;        /* almost square */
+  --radius-sm: 5px;
+
+  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+
+  color-scheme: light;
+  font: 400 16px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* DARK = Telkom red on a dark (not pitch-black) surface */
+[data-theme="dark"] {
   --bg: #131a22;
   --bg-2: #1a232e;
   --bg-3: #202b38;
@@ -14,27 +49,16 @@
   --text-dim: #8395a6;
   --text-faint: #5e6f80;
 
-  /* sci-fi green accent */
-  --green: #3ee58f;
-  --green-bright: #5cffa8;
-  --green-dim: rgba(62, 229, 143, 0.14);
-  --green-line: rgba(62, 229, 143, 0.35);
+  --green: #ff4d52;          /* brighter red reads better on dark */
+  --green-bright: #ff6b6f;
+  --green-dim: rgba(255, 77, 82, 0.14);
+  --green-line: rgba(255, 77, 82, 0.4);
 
   --danger: #ff6b6b;
   --amber: #ffce5c;
 
   --header-bg: rgba(19, 26, 34, 0.7);
-
-  --radius: 7px;        /* almost square */
-  --radius-sm: 5px;
-
-  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
-
   color-scheme: dark;
-  font: 400 16px/1.5 var(--sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 * { box-sizing: border-box; }
@@ -69,15 +93,17 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   background:
     radial-gradient(130% 100% at 50% -10%, #1c2836 0%, #141b24 55%, #0f151c 100%);
   transition: opacity 0.5s ease, filter 0.5s ease, transform 0.5s ease;
-  /* Login is always the dark starfield — pin text to light so light themes
-     (e.g. Telkom) don't render dark-on-dark. Accent (--green) still follows theme. */
+  /* Login is always the dark starfield — pin text to light regardless of theme. */
   --text: #e7edf3;
   --text-dim: #9fb1c1;
   --text-faint: #6a7c8c;
   --line: #2b3947;
+  /* shooting-star / glow accent — Telkom red */
+  --star: #ff5a5e;
+  --star-glow: rgba(227, 30, 36, 0.85);
+  --star-fade: rgba(227, 30, 36, 0);
 }
 .auth-screen h1, .auth-screen h2, .auth-screen h3 { color: var(--text); }
-[data-theme="telkom"] .auth-btn-primary { color: #fff; }
 
 /* leaving animation when login succeeds */
 .auth-screen.leaving {
@@ -96,7 +122,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   font-size: 18px;
   letter-spacing: 0.5px;
   color: var(--green);
-  text-shadow: 0 0 18px rgba(62, 229, 143, 0.45);
+  text-shadow: 0 0 18px var(--star-glow);
   z-index: 5;
 }
 
@@ -117,8 +143,8 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: var(--green-bright);
-  box-shadow: 0 0 8px 1px rgba(92, 255, 168, 0.8);
+  background: var(--star);
+  box-shadow: 0 0 8px 1px var(--star-glow);
   opacity: 0;
   animation: shoot var(--dur, 3.2s) linear infinite;
   animation-delay: var(--delay, 0s);
@@ -131,7 +157,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   width: 130px;
   height: 1.4px;
   transform: translateY(-50%);
-  background: linear-gradient(270deg, rgba(92, 255, 168, 0.85), rgba(92, 255, 168, 0));
+  background: linear-gradient(270deg, var(--star), var(--star-fade));
 }
 @keyframes shoot {
   0%   { transform: translate(0, 0) rotate(20deg); opacity: 0; }
@@ -312,7 +338,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
    APP SHELL
    ============================================================ */
 
-.app-shell { display: flex; min-height: 100vh; background: var(--bg); }
+.app-shell { display: flex; min-height: 100vh; background: var(--bg); overflow: hidden; }
 
 .app-sidebar {
   width: 248px; flex-shrink: 0;
@@ -325,10 +351,10 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 .app-brand {
   font-family: var(--display); font-weight: 700; font-size: 18px;
   letter-spacing: 0.5px; color: var(--green);
-  text-shadow: 0 0 16px rgba(62, 229, 143, 0.4);
   padding: 6px 10px 18px; margin-bottom: 6px;
   border-bottom: 1px solid var(--line-soft);
 }
+[data-theme="dark"] .app-brand { text-shadow: 0 0 16px var(--green-line); }
 .nav-section { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-faint); margin: 18px 10px 8px; }
 .nav-item {
   width: 100%; display: flex; align-items: center; gap: 12px;
@@ -446,7 +472,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 /* mini bar chart */
 .bars { display: flex; align-items: flex-end; gap: 10px; height: 130px; padding-top: 8px; }
 .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; }
-.bar { width: 70%; min-height: 4px; background: linear-gradient(180deg, var(--green), rgba(62,229,143,0.35)); border-radius: 3px 3px 0 0; transition: height 0.6s cubic-bezier(0.16,1,0.3,1); }
+.bar { width: 70%; min-height: 4px; background: var(--green); border-radius: 3px 3px 0 0; transition: height 0.6s cubic-bezier(0.16,1,0.3,1); }
 .bar-label { font-size: 11px; color: var(--text-faint); }
 
 /* list rows */
@@ -471,68 +497,20 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 /* generic placeholder page */
 .placeholder-card { background: var(--bg-2); border: 1px dashed var(--line); border-radius: var(--radius); padding: 40px; text-align: center; color: var(--text-dim); }
 
-/* ============================================================
-   LIGHT THEME — soft, not glaring; green stays the accent
-   ============================================================ */
-[data-theme="light"] {
-  --bg: #dfe5ec;
-  --bg-2: #f3f6f9;
-  --bg-3: #e9eef3;
-  --line: #d2dae3;
-  --line-soft: #e0e6ed;
+/* White text sits on the red accent in both Light and Dark themes */
+.btn-primary, .fab, .bell-badge, .auth-btn-primary { color: #ffffff; }
 
-  --text: #1b2733;
-  --text-dim: #566472;
-  --text-faint: #8696a5;
-
-  --green: #12a866;
-  --green-bright: #0e9159;
-  --green-dim: rgba(18, 168, 102, 0.14);
-  --green-line: rgba(18, 168, 102, 0.40);
-
-  --danger: #e05656;
-  --amber: #d99413;
-
-  --header-bg: rgba(243, 246, 249, 0.82);
-  color-scheme: light;
-}
-[data-theme="light"] .metric-value,
-[data-theme="light"] .auth-btn-primary,
-[data-theme="light"] .btn-primary,
-[data-theme="light"] .fab { color: #06231a; }
-[data-theme="light"] .btn-primary, [data-theme="light"] .fab { color: #ffffff; }
-
-/* ============================================================
-   TELKOM THEME — corporate white + #E31E24 red
-   ============================================================ */
-[data-theme="telkom"] {
-  --bg: #f5f6f8;
-  --bg-2: #ffffff;
-  --bg-3: #f0f2f5;
-  --line: #e6e8ec;
-  --line-soft: #eef0f3;
-
-  --text: #1f2430;
-  --text-dim: #5b6472;
-  --text-faint: #8a93a0;
-
-  /* accent remapped from green -> Telkom red */
-  --green: #E31E24;
-  --green-bright: #b71419;
-  --green-dim: rgba(227, 30, 36, 0.10);
-  --green-line: rgba(227, 30, 36, 0.35);
-
-  --danger: #dc2626;
-  --amber: #d97706;
-
-  --header-bg: rgba(255, 255, 255, 0.85);
-  color-scheme: light;
-}
-[data-theme="telkom"] .btn-primary,
-[data-theme="telkom"] .fab,
-[data-theme="telkom"] .bell-badge { color: #ffffff; }
-[data-theme="telkom"] .app-brand { text-shadow: none; }
-[data-theme="telkom"] .bar { background: var(--green); }
+/* Profile page */
+.profile-card { max-width: 560px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.profile-hero { display: flex; align-items: center; gap: 16px; padding: 22px; border-bottom: 1px solid var(--line-soft); }
+.pf-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--green-dim); color: var(--green); border: 1px solid var(--green-line); display: flex; align-items: center; justify-content: center; font: 600 22px var(--display); flex-shrink: 0; }
+.pf-name { font: 600 20px var(--display); color: var(--text); letter-spacing: -0.3px; }
+.pf-role { margin-top: 7px; }
+.pf-details { padding: 8px 22px 18px; }
+.pf-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.pf-row:last-child { border-bottom: none; }
+.pf-k { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-faint); font-weight: 600; }
+.pf-v { font-size: 14px; color: var(--text); font-weight: 500; text-align: right; }
 
 /* ============================================================
    ORDERS — toolbar, view toggle, filter, grid/list, menu, FAB
@@ -908,7 +886,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 .bell-wrap { position: relative; }
 .bell-badge {
   position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px;
-  border-radius: 10px; background: var(--green); color: #0c1116;
+  border-radius: 10px; background: var(--green); color: #ffffff;
   font: 600 10px var(--sans); display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 2px var(--header-bg);
 }
@@ -930,7 +908,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 /* ============================================================
    LANGUAGE — globe switcher
    ============================================================ */
-.lang-wrap { position: relative; }
+.lang-wrap, .export-wrap { position: relative; }
 .lang-btn { width: auto; padding: 0 11px; gap: 7px; font: 600 12px var(--sans); }
 .lang-btn span { letter-spacing: 0.5px; }
 .lang-menu {
@@ -992,7 +970,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 /* ============================================================
    SIDEBAR — collapse/expand (burger) + dock left/right
    ============================================================ */
-.app-sidebar { overflow: hidden; transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1), padding 0.32s cubic-bezier(0.4, 0, 0.2, 1); }
+.app-sidebar { transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1), padding 0.32s cubic-bezier(0.4, 0, 0.2, 1); }
 .nav-item span:not(.avatar) { white-space: nowrap; transition: opacity 0.18s ease; }
 .nav-spacer { cursor: grab; }
 .app-sidebar.dragging, .app-sidebar.dragging * { cursor: grabbing !important; }
@@ -1046,6 +1024,8 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   box-shadow: 0 22px 44px -22px rgba(0,0,0,.55);
 }
 .profile-menu-up { top: auto; bottom: calc(100% + 8px); left: 0; right: auto; }
+/* when the sidebar is docked on the right, open the profile menu leftward so it isn't clipped off-screen */
+.app-shell.dock-right .profile-menu { left: auto; right: 0; }
 .profile-menu[hidden] { display: none; }
 .profile-head { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); display: flex; gap: 11px; align-items: center; }
 .profile-head .pa { width: 38px; height: 38px; border-radius: 50%; background: var(--green-dim); color: var(--green); display: flex; align-items: center; justify-content: center; font: 600 13px var(--display); border: 1px solid var(--green-line); flex-shrink: 0; }

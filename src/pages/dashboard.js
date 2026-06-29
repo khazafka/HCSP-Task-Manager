@@ -23,8 +23,10 @@ export async function renderDashboard(profile) {
   if (role === 'customer' && uid) {
     visible = orders.filter(o => o.created_by === uid);
   } else if (role === 'team' && uid) {
-    visible = orders.filter(o => o.assigned_to === uid || o.team_id === uid);
-    if (visible.length === 0) visible = orders; // schema may differ — don't show blank
+    // Team Solution only sees orders actually assigned to them (via order_assignments).
+    const { data: asn } = await supabase.from('order_assignments').select('order_id').eq('user_id', uid);
+    const assigned = new Set((asn || []).map(a => a.order_id));
+    visible = orders.filter(o => assigned.has(o.id));
   }
 
   const norm = s => (s || '').toString().toLowerCase();
