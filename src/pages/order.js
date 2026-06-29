@@ -5,7 +5,7 @@ import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
 import { t } from '../utils/i18n.js';
-import { sortAllowedBusinessUnits } from '../utils/business-units.js';
+import { buildBusinessUnitOptions } from '../utils/business-units.js';
 import { subscribeOrders, debounce } from '../utils/realtime.js';
 
 const STATUSES = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
@@ -458,7 +458,7 @@ async function renderCreateOrderForm(profile) {
     supabase.from('business_units').select('*').order('id'),
     fetchContactUsers(),
   ]);
-  const businessUnits = sortAllowedBusinessUnits(rawBusinessUnits || []);
+  const businessUnits = buildBusinessUnitOptions(rawBusinessUnits || []);
 
   container.innerHTML = `
     <div class="view">
@@ -477,9 +477,7 @@ async function renderCreateOrderForm(profile) {
           <div class="field"><label>${t('cr.desc')}</label><textarea id="orderDescription" class="textarea" rows="4"></textarea></div>
           <div class="field"><label>${t('cr.unit')}</label>
             <select id="businessUnit" class="select">
-              ${businessUnits.length
-                ? businessUnits.map(u => `<option value="${u.id}">${u.name}</option>`).join('')
-                : '<option value="">No valid business units configured</option>'}
+              ${businessUnits.map(u => `<option value="${u.id}" ${u.configured ? '' : 'disabled'}>${u.name}${u.configured ? '' : ' - run SQL seed'}</option>`).join('')}
             </select>
           </div>
           <div class="form-actions">

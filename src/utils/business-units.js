@@ -23,3 +23,12 @@ export function sortAllowedBusinessUnits(units = []) {
     .filter(unit => isAllowedBusinessUnit(unit.name))
     .sort((a, b) => BUSINESS_UNIT_NAMES.indexOf(a.name) - BUSINESS_UNIT_NAMES.indexOf(b.name));
 }
+
+export function buildBusinessUnitOptions(units = []) {
+  const byName = new Map(sortAllowedBusinessUnits(units).map(unit => [unit.name, unit]));
+  return BUSINESS_UNIT_NAMES.map(name => ({
+    name,
+    id: byName.get(name)?.id || '',
+    configured: Boolean(byName.get(name)?.id),
+  }));
+}
