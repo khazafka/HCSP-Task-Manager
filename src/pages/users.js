@@ -95,18 +95,43 @@ async function loadBusinessUnits() {
 }
 
 async function adminRequest(method, payload) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
+  const session = await getFreshSession();
+  const res = await sendAdminRequest(method, payload, session.access_token);
+  if (res.status === 401) {
+    const refreshed = await getFreshSession(true);
+    const retry = await sendAdminRequest(method, payload, refreshed.access_token);
+    return parseAdminResponse(retry);
+  }
+  return parseAdminResponse(res);
+}
 
-  const res = await fetch('/api/admin-users', {
+async function getFreshSession(forceRefresh = false) {
+  const { data: { session } } = forceRefresh
+    ? await supabase.auth.refreshSession()
+    : await supabase.auth.getSession();
+
+  if (!session?.access_token) throw new Error('Not authenticated. Please log out and sign in again.');
+
+  const expiresAtMs = (session.expires_at || 0) * 1000;
+  if (!forceRefresh && expiresAtMs && expiresAtMs - Date.now() < 60_000) {
+    return getFreshSession(true);
+  }
+
+  return session;
+}
+
+function sendAdminRequest(method, payload, accessToken) {
+  return fetch('/api/admin-users', {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: payload ? JSON.stringify(payload) : undefined,
   });
+}
 
+async function parseAdminResponse(res) {
   const contentType = res.headers.get('content-type') || '';
   const text = await res.text();
   let data = {};

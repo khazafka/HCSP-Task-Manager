@@ -55,7 +55,7 @@ export default async function handler(req, res) {
   }
 
   // 1) Require a valid Supabase session (prevents an open relay using your token)
-  const jwt = (req.headers.authorization || '').replace('Bearer ', '').trim();
+  const jwt = (req.headers.authorization || req.headers.Authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!jwt) return res.status(401).json({ error: 'Missing auth token' });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

@@ -13,7 +13,7 @@ function normalizeRole(raw) {
 }
 
 function getBearer(req) {
-  return (req.headers.authorization || '').replace('Bearer ', '').trim();
+  return (req.headers.authorization || req.headers.Authorization || '').replace(/^Bearer\s+/i, '').trim();
 }
 
 function normalizeSupabaseUrl(value) {
