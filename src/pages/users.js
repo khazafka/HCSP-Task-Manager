@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { notify } from '../utils/notify.js';
 import readXlsxFile from 'read-excel-file/browser';
+import { BUSINESS_UNIT_NAMES, isAllowedBusinessUnit, normalizeBusinessUnitName } from '../utils/business-units.js';
 
 const ROLES = [
   { value: 'customer', label: 'Customer' },
@@ -12,12 +13,10 @@ const ROLES = [
 
 let editingId = null;
 let users = [];
-let businessUnits = [];
 
 export async function renderUsers() {
   const view = document.querySelector('#appContent .view');
   if (!view) return;
-  await loadBusinessUnits();
 
   view.innerHTML = `
     <div class="toolbar">
@@ -44,10 +43,8 @@ export async function renderUsers() {
             <label>Unit bisnis</label>
             <select id="userUnitBisnisSelect" class="select">
               <option value="">Select business unit...</option>
-              ${businessUnits.map(unit => `<option value="${escapeHtml(unit.name)}">${escapeHtml(unit.name)}</option>`).join('')}
-              <option value="__custom">Other / type manually</option>
+              ${BUSINESS_UNIT_NAMES.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('')}
             </select>
-            <input id="userUnitBisnisCustom" class="input" placeholder="Type business unit" autocomplete="off" hidden style="margin-top:8px"/>
           </div>
           <div class="field"><label>Role</label>
             <select id="userRole" class="select">${ROLES.map(r => `<option value="${r.value}">${r.label}</option>`).join('')}</select>
@@ -79,19 +76,8 @@ export async function renderUsers() {
   view.querySelector('#cancelUserBtn').addEventListener('click', closeForm);
   view.querySelector('#saveUserBtn').addEventListener('click', saveUser);
   view.querySelector('#refreshUsersBtn').addEventListener('click', loadUsers);
-  view.querySelector('#userUnitBisnisSelect').addEventListener('change', updateUnitBisnisCustomField);
 
   await loadUsers();
-}
-
-async function loadBusinessUnits() {
-  const { data, error } = await supabase.from('business_units').select('id, name').order('name', { ascending: true });
-  if (error) {
-    console.warn('[users] unable to load business units:', error.message);
-    businessUnits = [];
-    return;
-  }
-  businessUnits = data || [];
 }
 
 async function adminRequest(method, payload) {
@@ -267,40 +253,15 @@ async function saveUser() {
 
 function setUnitBisnisValue(value) {
   const select = document.querySelector('#userUnitBisnisSelect');
-  const custom = document.querySelector('#userUnitBisnisCustom');
-  if (!select || !custom) return;
-
-  const normalized = (value || '').trim().toLowerCase();
-  const match = businessUnits.find(unit => (unit.name || '').trim().toLowerCase() === normalized);
-
-  if (!value) {
-    select.value = '';
-    custom.value = '';
-  } else if (match) {
-    select.value = match.name;
-    custom.value = '';
-  } else {
-    select.value = '__custom';
-    custom.value = value;
-  }
-  updateUnitBisnisCustomField();
+  if (!select) return;
+  const normalized = normalizeBusinessUnitName(value);
+  select.value = isAllowedBusinessUnit(normalized) ? normalized : '';
 }
 
 function getUnitBisnisValue() {
   const select = document.querySelector('#userUnitBisnisSelect');
-  const custom = document.querySelector('#userUnitBisnisCustom');
   if (!select) return '';
-  if (select.value === '__custom') return (custom?.value || '').trim();
-  return select.value.trim();
-}
-
-function updateUnitBisnisCustomField() {
-  const select = document.querySelector('#userUnitBisnisSelect');
-  const custom = document.querySelector('#userUnitBisnisCustom');
-  if (!select || !custom) return;
-  const showCustom = select.value === '__custom' || !businessUnits.length;
-  custom.hidden = !showCustom;
-  if (showCustom && select.value !== '__custom') select.value = '__custom';
+  return normalizeBusinessUnitName(select.value);
 }
 
 async function importUsers(event) {
@@ -315,10 +276,10 @@ async function importUsers(event) {
       return;
     }
 
-    const validRows = rows.filter(r => r.email && r.full_name && r.password);
+    const validRows = rows.filter(r => r.email && r.full_name && r.password && (!r.unit_bisnis || isAllowedBusinessUnit(r.unit_bisnis)));
     const missing = rows.length - validRows.length;
     if (!validRows.length) {
-      notify('Each imported user needs full_name, email, and password columns.', 'warning');
+      notify('Each imported user needs full_name, email, password, and a valid unit_bisnis if provided.', 'warning');
       return;
     }
 
@@ -373,7 +334,7 @@ function rowsToUsers(rows) {
       full_name: get('full_name', 'fullname', 'name', 'nama', 'nama_lengkap'),
       email: get('email', 'email_address', 'alamat_email'),
       phone: get('phone', 'whatsapp', 'wa', 'no_hp', 'nomor_hp', 'contact_number'),
-      unit_bisnis: get('unit_bisnis', 'unit_bisnis', 'business_unit', 'unit'),
+      unit_bisnis: normalizeBusinessUnitName(get('unit_bisnis', 'unit_bisnis', 'business_unit', 'unit')),
       role: get('role', 'hak_akses', 'roles') || 'customer',
       password: get('password', 'temporary_password', 'temp_password', 'kata_sandi'),
     };
@@ -459,7 +420,7 @@ function confirmImportUsers({ file, validRows, missing }) {
       </div>
 
       <div class="import-note">
-        Required columns: <b>full_name</b>, <b>email</b>, and <b>password</b>. Optional columns: role, phone, unit_bisnis.
+        Required columns: <b>full_name</b>, <b>email</b>, and <b>password</b>. Optional columns: role, phone, unit_bisnis. Valid unit_bisnis values: ${BUSINESS_UNIT_NAMES.join(', ')}.
       </div>
 
       <div class="import-preview">

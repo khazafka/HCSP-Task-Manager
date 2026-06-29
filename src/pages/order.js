@@ -5,6 +5,7 @@ import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
 import { t } from '../utils/i18n.js';
+import { sortAllowedBusinessUnits } from '../utils/business-units.js';
 import { subscribeOrders, debounce } from '../utils/realtime.js';
 
 const STATUSES = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
@@ -453,10 +454,11 @@ async function deleteOrder(orderId, profile) {
 async function renderCreateOrderForm(profile) {
   const container = document.querySelector('#appContent');
   if (!container) return;
-  const [{ data: businessUnits }, contactUsers] = await Promise.all([
+  const [{ data: rawBusinessUnits }, contactUsers] = await Promise.all([
     supabase.from('business_units').select('*').order('id'),
     fetchContactUsers(),
   ]);
+  const businessUnits = sortAllowedBusinessUnits(rawBusinessUnits || []);
 
   container.innerHTML = `
     <div class="view">
@@ -475,7 +477,9 @@ async function renderCreateOrderForm(profile) {
           <div class="field"><label>${t('cr.desc')}</label><textarea id="orderDescription" class="textarea" rows="4"></textarea></div>
           <div class="field"><label>${t('cr.unit')}</label>
             <select id="businessUnit" class="select">
-              ${(businessUnits || []).map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+              ${businessUnits.length
+                ? businessUnits.map(u => `<option value="${u.id}">${u.name}</option>`).join('')
+                : '<option value="">No valid business units configured</option>'}
             </select>
           </div>
           <div class="form-actions">
@@ -497,7 +501,7 @@ async function renderCreateOrderForm(profile) {
 
   async function saveOrder(status) {
     const businessUnitId = Number(container.querySelector('#businessUnit').value) || null;
-    const businessUnitName = (businessUnits || []).find(u => u.id === businessUnitId)?.name || '';
+    const businessUnitName = businessUnits.find(u => u.id === businessUnitId)?.name || '';
     const payload = {
       business_unit_id: businessUnitId,
       item_order: container.querySelector('#itemOrder').value || null,
@@ -510,6 +514,7 @@ async function renderCreateOrderForm(profile) {
     if (!payload.order_title) { notify(t('cr.titleReq'), 'warning'); return; }
     if (!payload.item_order) { notify('Select a service / item order.', 'warning'); return; }
     if (!payload.contact_number) { notify('Select a contact person with a phone number.', 'warning'); return; }
+    if (!payload.business_unit_id) { notify('Select a valid business unit.', 'warning'); return; }
 
     const { data: order, error } = await supabase.from('orders').insert(payload).select('*').single();
     if (error) { notify(error.message, 'error'); return; }
