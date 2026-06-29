@@ -4,6 +4,7 @@ import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
 import { downloadAttachments, formatFileSize, openAttachment, uploadReportFiles, validateReportFiles } from '../utils/report-files.js';
+import { t } from '../utils/i18n.js';
 
 const STATUSES = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
 
@@ -194,8 +195,8 @@ export async function renderOrderDetails(orderId, profile) {
   container.innerHTML = `
     <div class="view">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <button class="link-back" id="backBtn" style="margin:0">&larr; Back to orders</button>
-        <span style="font:500 11px var(--mono,monospace);color:var(--text-faint)">Tracking ID · #ORD-${order.id}</span>
+        <button class="link-back" id="backBtn" style="margin:0">&larr; ${t('det.back')}</button>
+        <span style="font:500 11px var(--mono,monospace);color:var(--text-faint)">${t('det.tracking')} · #ORD-${order.id}</span>
       </div>
 
       <div class="detail-grid">
@@ -203,21 +204,21 @@ export async function renderOrderDetails(orderId, profile) {
           <div class="detail-block">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line-soft);padding-bottom:14px;margin-bottom:14px">
               <div>
-                <h1 style="font-size:22px;margin:0">${order.order_title || 'Untitled order'}</h1>
-                <p style="font-size:12px;color:var(--text-dim);margin-top:4px">Business unit · ${order.business_units?.name ?? 'Unassigned'}</p>
+                <h1 style="font-size:22px;margin:0">${order.order_title || t('ord.untitled')}</h1>
+                <p style="font-size:12px;color:var(--text-dim);margin-top:4px">${t('cr.unit')} · ${order.business_units?.name ?? '—'}</p>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                ${canEdit ? `<button class="btn btn-ghost" id="editBtn" style="padding:8px 12px">Edit</button>` : ''}
-                ${canDelete ? `<button class="btn btn-ghost" id="deleteBtn" style="padding:8px 12px;color:var(--danger);border-color:rgba(255,107,107,.3)">Delete</button>` : ''}
+                ${canEdit ? `<button class="btn btn-ghost" id="editBtn" style="padding:8px 12px">${t('ord.edit')}</button>` : ''}
+                ${canDelete ? `<button class="btn btn-ghost" id="deleteBtn" style="padding:8px 12px;color:var(--danger);border-color:rgba(255,107,107,.3)">${t('ord.delete')}</button>` : ''}
                 <span class="pill ${pillClass(order.status)}">${order.status}</span>
               </div>
             </div>
-            <div class="detail-label">Description / requirements</div>
-            <div class="detail-text">${order.order_description || 'No details provided.'}</div>
+            <div class="detail-label">${t('det.descReq')}</div>
+            <div class="detail-text">${order.order_description || t('det.noDetails')}</div>
           </div>
 
           <div class="detail-block">
-            <h3>Status tracking</h3>
+            <h3>${t('det.statusTracking')}</h3>
             ${history.length ? history.map(h => `
               <div class="timeline-item">
                 <div class="timeline-dot"></div>
@@ -225,11 +226,11 @@ export async function renderOrderDetails(orderId, profile) {
                   <div class="timeline-main">${h.status}</div>
                   <div class="timeline-time">${new Date(h.created_at).toLocaleString()}</div>
                 </div>
-              </div>`).join('') : '<div class="empty">No status changes recorded yet.</div>'}
+              </div>`).join('') : `<div class="empty">${t('det.noStatus')}</div>`}
           </div>
 
           <div class="detail-block">
-            <h3>Work reports history</h3>
+            <h3>${t('det.reports')}</h3>
             ${workReports.length ? workReports.map((r, idx) => `
               <div class="report-item">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -242,42 +243,42 @@ export async function renderOrderDetails(orderId, profile) {
                   <button class="btn btn-ghost" data-report-download="${r.id}" style="padding:7px 10px" ${r.work_report_attachments?.length ? '' : 'disabled'}>Unduh semua</button>
                   <span class="row-sub">${r.work_report_attachments?.length || 0} attachment(s)</span>
                 </div>
-              </div>`).join('') : `<div class="empty">No reports compiled yet.</div>`}
+              </div>`).join('') : `<div class="empty">${t('det.noReports')}</div>`}
           </div>
         </div>
 
         <div>
           <div class="detail-block">
-            <h3>Team assignments</h3>
+            <h3>${t('det.assignments')}</h3>
             ${order.order_assignments?.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${order.order_assignments.map(a => `
               <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-3);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:9px 12px">
                 <div><div style="font:600 12.5px var(--sans);color:var(--text)">${a.users?.full_name || '—'}</div><div style="font-size:10.5px;color:var(--text-faint);text-transform:uppercase">${a.assignment_type || a.users?.role || ''}</div></div>
                 ${canAssign ? `<button data-unassign="${a.id}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">&times;</button>` : ''}
-              </div>`).join('')}</div>` : `<div class="empty" style="padding:10px 0">No operators assigned.</div>`}
+              </div>`).join('')}</div>` : `<div class="empty" style="padding:10px 0">${t('det.noOperators')}</div>`}
             ${canAssign ? `
               <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-soft);padding-top:12px">
-                <select id="assignUserSelect" class="select"><option value="">Select user…</option>${(allUsers || []).map(u => `<option value="${u.id}" data-role="${u.role}">${u.full_name} (${u.role})</option>`).join('')}</select>
+                <select id="assignUserSelect" class="select"><option value="">${t('det.selectUser')}</option>${(allUsers || []).map(u => `<option value="${u.id}" data-role="${u.role}">${u.full_name} (${u.role})</option>`).join('')}</select>
                 <div style="font-size:11px;color:var(--text-faint)">Assignment WhatsApp is sent to the selected user's phone in User Management, not the order contact number.</div>
-                <button id="assignBtn" class="btn btn-primary" style="width:100%;justify-content:center">Assign user</button>
+                <button id="assignBtn" class="btn btn-primary" style="width:100%;justify-content:center">${t('det.assignUser')}</button>
               </div>` : ''}
           </div>
 
           ${canUpdateStatus ? `
             <div class="detail-block">
-              <h3>Lifecycle pipeline</h3>
+              <h3>${t('det.pipeline')}</h3>
               <select id="statusSelect" class="select" style="margin-bottom:10px">${STATUSES.map(s => `<option value="${s}" ${order.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
-              <button id="updateStatusBtn" class="btn btn-ghost" style="width:100%;justify-content:center">Update status</button>
+              <button id="updateStatusBtn" class="btn btn-ghost" style="width:100%;justify-content:center">${t('det.updateStatus')}</button>
             </div>` : ''}
 
           ${canAddReport ? `
             <div class="detail-block">
-              <h3>Submit work report</h3>
-              <input id="repTitle" class="input" placeholder="Report title" style="margin-bottom:8px"/>
+              <h3>${t('det.submitReport')}</h3>
+              <input id="repTitle" class="input" placeholder="${t('det.reportTitle')}" style="margin-bottom:8px"/>
               <input id="repDate" class="input" type="date" value="${todayValue()}" style="margin-bottom:8px"/>
               <textarea id="repNotes" class="textarea" rows="4" placeholder="Notes / report description" style="margin-bottom:8px"></textarea>
               <input id="repFiles" class="input" type="file" multiple style="margin-bottom:8px"/>
               <div class="row-sub" style="margin-bottom:10px">Multiple files allowed. Max 10 MB per file.</div>
-              <button id="submitReportBtn" class="btn btn-primary" style="width:100%;justify-content:center">Send report</button>
+              <button id="submitReportBtn" class="btn btn-primary" style="width:100%;justify-content:center">${t('det.sendReport')}</button>
             </div>` : ''}
         </div>
       </div>
@@ -287,9 +288,9 @@ export async function renderOrderDetails(orderId, profile) {
   container.querySelector('#backBtn').addEventListener('click', () => renderOrders(profile));
   container.querySelector('#editBtn')?.addEventListener('click', () => renderEditOrder(order.id, profile));
   container.querySelector('#deleteBtn')?.addEventListener('click', async () => {
-    if (!confirm(`Delete order #ORD-${order.id}?`)) return;
+    if (!confirm(`${t('ord.deleteConfirm')} #ORD-${order.id}?`)) return;
     await supabase.from('orders').delete().eq('id', order.id);
-    notify(`Order #ORD-${order.id} deleted.`, 'success');
+    notify(`#ORD-${order.id} ${t('ord.deleted')}`, 'success');
     renderOrders(profile);
   });
   container.querySelectorAll('[data-report-detail]').forEach(btn => {
@@ -357,12 +358,12 @@ export async function renderOrderDetails(orderId, profile) {
       const { error: e } = await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
       if (e) { notify(e.message, 'error'); return; }
       await recordStatusHistory(order.id, newStatus);
-      notify(`Status updated to ${newStatus}.`, 'success');
+      notify(`${t('det.statusUpdated')} ${newStatus}.`, 'success');
       const statusBody = `[HCSP-OM] Status Order Berubah\n\nOrder   : ${orderLabel(order)}\nLayanan : ${order.order_title || '-'}\nUnit    : ${order.business_units?.name || '-'}\nStatus  : ${newStatus}\n\nLihat detail di:\n${orderLink(order)}`;
       const res = await createNotification({ recipientId: order.created_by, orderId: order.id, type: 'status_changed', title: `Order ${newStatus}`, body: statusBody });
       if (!res.logged) {
         notify(res.reason === 'no-recipient'
-          ? 'This order has no customer (created_by) — no one to notify.'
+          ? t('det.noCustomer')
           : 'Status saved, but the notification could not be logged. Check the console.', 'warning');
       }
       renderOrderDetails(order.id, profile);
@@ -400,7 +401,7 @@ export async function renderOrderDetails(orderId, profile) {
         .single();
       if (e) {
         btn.disabled = false;
-        btn.textContent = 'Send report';
+        btn.textContent = t('det.sendReport');
         notify(e.message, 'error');
         return;
       }

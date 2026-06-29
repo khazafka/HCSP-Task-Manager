@@ -4,6 +4,7 @@ import { sendWhatsAppMessage } from '../utils/whatsapp.js';
 import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
+import { t } from '../utils/i18n.js';
 
 const STATUSES = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
 
@@ -144,39 +145,39 @@ export async function renderOrders(profile) {
     <div class="view">
       <div class="toolbar">
         <div class="page-head" style="margin:0">
-          <h1>Orders</h1>
-          <p>Track and manage Human Capital service requests.</p>
+          <h1>${t('ord.title')}</h1>
+          <p>${t('ord.sub')}</p>
         </div>
         <div class="toolbar-tools">
           <div class="seg" id="viewSeg">
             <button data-view="grid" class="${view === 'grid' ? 'active' : ''}" aria-label="Grid view">${SVG.grid}</button>
             <button data-view="list" class="${view === 'list' ? 'active' : ''}" aria-label="List view">${SVG.list}</button>
           </div>
-          <button class="tool-btn" id="filterBtn">${SVG.filter}<span>Filter</span></button>
+          <button class="tool-btn" id="filterBtn">${SVG.filter}<span>${t('ord.filter')}</span></button>
           <div class="filter-pop" id="filterPop" hidden>
             <div class="filter-group">
-              <h5>Sort</h5>
+              <h5>${t('ord.sort')}</h5>
               <div class="chip-row" data-group="sort">
-                <button class="chip" data-val="az">A–Z</button>
-                <button class="chip" data-val="za">Z–A</button>
-                <button class="chip" data-val="newest">Newest</button>
-                <button class="chip" data-val="oldest">Oldest</button>
+                <button class="chip" data-val="az">${t('ord.az')}</button>
+                <button class="chip" data-val="za">${t('ord.za')}</button>
+                <button class="chip" data-val="newest">${t('ord.newest')}</button>
+                <button class="chip" data-val="oldest">${t('ord.oldest')}</button>
               </div>
             </div>
             <div class="filter-group">
-              <h5>Life cycle / pipeline</h5>
+              <h5>${t('ord.lifecycle')}</h5>
               <div class="chip-row" data-group="status">
                 ${STATUSES.map(s => `<button class="chip" data-val="${s}">${s}</button>`).join('')}
               </div>
             </div>
             ${units.length ? `
             <div class="filter-group">
-              <h5>Team / business unit</h5>
+              <h5>${t('ord.teamUnit')}</h5>
               <div class="chip-row" data-group="unit">
                 ${units.map(u => `<button class="chip" data-val="${u}">${u}</button>`).join('')}
               </div>
             </div>` : ''}
-            <button class="filter-clear" id="filterClear">Clear all filters</button>
+            <button class="filter-clear" id="filterClear">${t('ord.clear')}</button>
           </div>
         </div>
       </div>
@@ -184,7 +185,7 @@ export async function renderOrders(profile) {
       <div id="ordersBody"></div>
     </div>
 
-    ${can('createOrder', role) ? `<button class="fab" id="createFab">${SVG.plus}<span>Create order</span></button>` : ''}
+    ${can('createOrder', role) ? `<button class="fab" id="createFab">${SVG.plus}<span>${t('ord.createBtn')}</span></button>` : ''}
   `;
 
   const body = container.querySelector('#ordersBody');
@@ -204,15 +205,15 @@ export async function renderOrders(profile) {
   function draw() {
     const list = applyFilters(orders);
     if (!list.length) {
-      body.innerHTML = `<div class="placeholder-card">No orders match your filters${can('createOrder', role) ? ' — create one with the button below.' : '.'}</div>`;
+      body.innerHTML = `<div class="placeholder-card">${t('ord.noMatch')}${can('createOrder', role) ? t('ord.noMatchCta') : '.'}</div>`;
       return;
     }
     const menu = (o) => `
       <button class="card-menu-btn" data-menu="${o.id}" aria-label="Order actions">${SVG.dots}</button>
       <div class="card-menu" id="menu-${o.id}" hidden>
-        <button data-act="view" data-id="${o.id}">${SVG.view} View</button>
-        ${can('editOrder', role) ? `<button data-act="edit" data-id="${o.id}">${SVG.edit} Edit</button>` : ''}
-        ${can('deleteOrder', role) ? `<button class="danger" data-act="delete" data-id="${o.id}">${SVG.trash} Delete</button>` : ''}
+        <button data-act="view" data-id="${o.id}">${SVG.view} ${t('ord.view')}</button>
+        ${can('editOrder', role) ? `<button data-act="edit" data-id="${o.id}">${SVG.edit} ${t('ord.edit')}</button>` : ''}
+        ${can('deleteOrder', role) ? `<button class="danger" data-act="delete" data-id="${o.id}">${SVG.trash} ${t('ord.delete')}</button>` : ''}
       </div>`;
 
     if (view === 'grid') {
@@ -220,13 +221,13 @@ export async function renderOrders(profile) {
       body.innerHTML = list.map((o, i) => `
         <div class="order-card" data-card="${o.id}" style="transition-delay:${i * 45}ms">
           <div class="oc-top">
-            <h3>#ORD-${o.id} · ${o.order_title || 'Untitled order'}</h3>
+            <h3>#ORD-${o.id} · ${o.order_title || t('ord.untitled')}</h3>
           </div>
           ${menu(o)}
           <div class="oc-sub"><span class="pill ${pillClass(o.status)}">${o.status || 'Draft'}</span></div>
           <div class="oc-meta">
-            <span><b>Unit:</b> ${o.business_units?.name || '—'}</span>
-            <span><b>Contact:</b> ${o.contact_number || '—'}</span>
+            <span><b>${t('ord.unit')}:</b> ${o.business_units?.name || '—'}</span>
+            <span><b>${t('ord.contact')}:</b> ${o.contact_number || '—'}</span>
           </div>
         </div>`).join('');
     } else {
@@ -235,8 +236,8 @@ export async function renderOrders(profile) {
         <div class="order-card" data-card="${o.id}" style="transition-delay:${i * 40}ms">
           <div class="oc-row">
             <div class="left">
-              <h3>#ORD-${o.id} · ${o.order_title || 'Untitled order'}</h3>
-              <div class="oc-meta"><span><b>Unit:</b> ${o.business_units?.name || '—'}</span><span><b>Contact:</b> ${o.contact_number || '—'}</span></div>
+              <h3>#ORD-${o.id} · ${o.order_title || t('ord.untitled')}</h3>
+              <div class="oc-meta"><span><b>${t('ord.unit')}:</b> ${o.business_units?.name || '—'}</span><span><b>${t('ord.contact')}:</b> ${o.contact_number || '—'}</span></div>
             </div>
             <span class="pill ${pillClass(o.status)}" style="margin-right:34px">${o.status || 'Draft'}</span>
           </div>
@@ -338,10 +339,10 @@ export async function renderOrders(profile) {
 }
 
 async function deleteOrder(orderId, profile) {
-  if (!confirm(`Delete order #ORD-${orderId}? This cannot be undone.`)) return;
+  if (!confirm(`${t('ord.deleteConfirm')} #ORD-${orderId}?`)) return;
   const { error } = await supabase.from('orders').delete().eq('id', orderId);
   if (error) { notify(error.message, 'error'); return; }
-  notify(`Order #ORD-${orderId} deleted.`, 'success');
+  notify(`#ORD-${orderId} ${t('ord.deleted')}`, 'success');
   renderOrders(profile);
 }
 
@@ -356,17 +357,17 @@ async function renderCreateOrderForm(profile) {
 
   container.innerHTML = `
     <div class="view">
-      <button class="link-back" id="cancelBtn">&larr; Back to orders</button>
-      <div class="page-head"><h1>Create order</h1><p>Submit a new Human Capital service request.</p></div>
+      <button class="link-back" id="cancelBtn">&larr; ${t('cr.back')}</button>
+      <div class="page-head"><h1>${t('cr.title')}</h1><p>${t('cr.sub')}</p></div>
       <div class="form-card">
         <div class="form-grid">
-          <div class="field"><label>Order title</label><input id="orderTitle" class="input" placeholder="e.g. Pengisian Formasi — Unit ABC"/></div>
+          <div class="field"><label>${t('cr.orderTitle')}</label><input id="orderTitle" class="input" placeholder="e.g. Pengisian Formasi - Unit ABC"/></div>
           <div class="field"><label>Contact person</label>
             <select id="contactUser" class="select">${contactOptions(contactUsers)}</select>
           </div>
-          <div class="field"><label>Contact number</label><input id="contactNumber" class="input" placeholder="08xxxxxxxxxx"/></div>
-          <div class="field"><label>Description</label><textarea id="orderDescription" class="textarea" rows="4"></textarea></div>
-          <div class="field"><label>Business unit</label>
+          <div class="field"><label>${t('cr.contact')}</label><input id="contactNumber" class="input" placeholder="08xxxxxxxxxx"/></div>
+          <div class="field"><label>${t('cr.desc')}</label><textarea id="orderDescription" class="textarea" rows="4"></textarea></div>
+          <div class="field"><label>${t('cr.unit')}</label>
             <select id="businessUnit" class="select">
               ${(businessUnits || []).map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
             </select>
@@ -374,7 +375,7 @@ async function renderCreateOrderForm(profile) {
           <div class="form-actions">
             <button id="saveDraftBtn" class="btn btn-ghost">Save draft</button>
             <button id="submitOrderBtn" class="btn btn-primary">Submit order</button>
-            <button id="cancelBtn2" class="btn btn-ghost">Cancel</button>
+            <button id="cancelBtn2" class="btn btn-ghost">${t('common.cancel')}</button>
           </div>
         </div>
       </div>
@@ -399,7 +400,7 @@ async function renderCreateOrderForm(profile) {
       status,
       created_by: (await supabase.auth.getUser()).data.user?.id,
     };
-    if (!payload.order_title) { notify('Order title is required.', 'warning'); return; }
+    if (!payload.order_title) { notify(t('cr.titleReq'), 'warning'); return; }
     if (!payload.contact_number) { notify('Select a contact person with a phone number.', 'warning'); return; }
 
     const { data: order, error } = await supabase.from('orders').insert(payload).select('*').single();
@@ -429,24 +430,24 @@ export async function renderEditOrder(orderId, profile) {
 
   container.innerHTML = `
     <div class="view">
-      <button class="link-back" id="cancelEditBtn">&larr; Back</button>
-      <div class="page-head"><h1>Edit order #ORD-${order.id}</h1><p>Update request details and pipeline status.</p></div>
+      <button class="link-back" id="cancelEditBtn">&larr; ${t('common.back')}</button>
+      <div class="page-head"><h1>${t('ed.title')} #ORD-${order.id}</h1><p>${t('ed.sub')}</p></div>
       <div class="form-card">
         <div class="form-grid">
-          <div class="field"><label>Order title</label><input id="orderTitle" class="input" value="${(order.order_title || '').replace(/"/g, '&quot;')}"/></div>
+          <div class="field"><label>${t('cr.orderTitle')}</label><input id="orderTitle" class="input" value="${(order.order_title || '').replace(/"/g, '&quot;')}"/></div>
           <div class="field"><label>Contact person</label>
             <select id="contactUser" class="select">${contactOptions(contactUsers, order.contact_number)}</select>
           </div>
-          <div class="field"><label>Contact number</label><input id="contactNumber" class="input" value="${escapeHtml(order.contact_number || '')}"/></div>
-          <div class="field"><label>Description</label><textarea id="orderDescription" class="textarea" rows="4">${order.order_description || ''}</textarea></div>
-          <div class="field"><label>Pipeline status</label>
+          <div class="field"><label>${t('cr.contact')}</label><input id="contactNumber" class="input" value="${escapeHtml(order.contact_number || '')}"/></div>
+          <div class="field"><label>${t('cr.desc')}</label><textarea id="orderDescription" class="textarea" rows="4">${order.order_description || ''}</textarea></div>
+          <div class="field"><label>${t('cr.status')}</label>
             <select id="orderStatus" class="select">
               ${STATUSES.map(s => `<option value="${s}" ${order.status === s ? 'selected' : ''}>${s}</option>`).join('')}
             </select>
           </div>
           <div class="form-actions">
-            <button id="saveEditBtn" class="btn btn-primary">Save changes</button>
-            <button id="cancelEditBtn2" class="btn btn-ghost">Cancel</button>
+            <button id="saveEditBtn" class="btn btn-primary">${t('ed.save')}</button>
+            <button id="cancelEditBtn2" class="btn btn-ghost">${t('common.cancel')}</button>
           </div>
         </div>
       </div>
@@ -472,9 +473,9 @@ export async function renderEditOrder(orderId, profile) {
       await recordStatusHistory(orderId, updated.status);
       try {
         await sendWhatsAppMessage(updated.contact_number, `[HCSP-OM] Status Order Berubah\n\nOrder   : #ORD-${orderId}\nLayanan : ${updated.order_title}\nStatus  : ${updated.status}\n\nLihat detail di:\n${location.origin}/orders/ORD-${orderId}`);
-        notify('Order updated and status notification sent.', 'success');
+        notify(t('ed.updated'), 'success');
       } catch (err) {
-        notify(`Order updated, but WhatsApp notification failed: ${err.message}`, 'warning');
+        notify(`${t('ed.updatedNoWa')}: ${err.message}`, 'warning');
       }
     } else {
       notify('Order updated successfully.', 'success');

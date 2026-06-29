@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js'
+import { t } from '../utils/i18n.js'
 
 const EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`
 const EYE_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19M6.6 6.6A18.5 18.5 0 0 0 2 11s3.5 7 10 7a9.1 9.1 0 0 0 4.4-1.1"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/><line x1="2" y1="2" x2="22" y2="22"/></svg>`
@@ -10,30 +11,30 @@ export function renderLogin(onSuccess) {
       <div class="auth-topname">HCSP-OM</div>
 
       <div class="auth-card" id="authCard" data-mode="choose">
-        <p class="auth-eyebrow">Human Capital · Order Management</p>
+        <p class="auth-eyebrow">${t('login.eyebrow')}</p>
 
         <div class="auth-choices" id="authChoices">
-          <h2>Get started</h2>
-          <p>Sign in to access your dashboard.</p>
-          <button class="auth-btn auth-btn-primary" id="openLoginBtn">Log in</button>
+          <h2>${t('login.getStarted')}</h2>
+          <p>${t('login.getStartedSub')}</p>
+          <button class="auth-btn auth-btn-primary" id="openLoginBtn">${t('login.login')}</button>
         </div>
 
         <div class="auth-panel" id="authPanel">
           <div class="auth-panel-inner">
-            <button class="auth-back" id="authBack" type="button"><span>&larr;</span> Back</button>
-            <h2 class="auth-form-title">Welcome back</h2>
-            <p class="auth-form-sub">Enter your credentials to continue.</p>
+            <button class="auth-back" id="authBack" type="button"><span>&larr;</span> ${t('common.back')}</button>
+            <h2 class="auth-form-title">${t('login.welcome')}</h2>
+            <p class="auth-form-sub">${t('login.welcomeSub')}</p>
 
             <form id="authForm" class="auth-form" novalidate>
               <label class="auth-field">
-                <span>Email</span>
+                <span>${t('login.email')}</span>
                 <input id="email" type="email" autocomplete="email" placeholder="you@company.com" required/>
               </label>
 
               <div class="auth-field">
                 <div class="auth-field-row">
-                  <span>Password</span>
-                  <button type="button" class="auth-forgot" id="forgotBtn">Forgot?</button>
+                  <span>${t('login.password')}</span>
+                  <button type="button" class="auth-forgot" id="forgotBtn">${t('login.forgot')}</button>
                 </div>
                 <div class="auth-input-wrap">
                   <input id="password" type="password" autocomplete="current-password" required/>
@@ -43,7 +44,7 @@ export function renderLogin(onSuccess) {
 
               <p id="authMsg" class="auth-msg"></p>
 
-              <button type="submit" id="authSubmit" class="auth-btn auth-btn-primary auth-submit">Log in</button>
+              <button type="submit" id="authSubmit" class="auth-btn auth-btn-primary auth-submit">${t('login.login')}</button>
             </form>
           </div>
         </div>
@@ -97,21 +98,21 @@ export function renderLogin(onSuccess) {
 
   forgotBtn.addEventListener('click', async () => {
     const email = emailInput.value.trim()
-    if (!email) { showMsg('Enter your email above, then tap Forgot.'); return }
+    if (!email) { showMsg(t('login.resetNeedEmail')); return }
     const { error } = await supabase.auth.resetPasswordForEmail(email)
     if (error) showMsg(error.message)
-    else showMsg('Password reset link sent to your email.', 'success')
+    else showMsg(t('login.resetSent'), 'success')
   })
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     const email = emailInput.value.trim()
     const password = passwordInput.value
-    if (!email || !password) { showMsg('Enter your email and password.'); return }
+    if (!email || !password) { showMsg(t('login.errCreds')); return }
 
     clearMsg()
     submitBtn.disabled = true
-    submitBtn.innerHTML = '<span class="spinner"></span> Logging in…'
+    submitBtn.innerHTML = `<span class="spinner"></span> ${t('login.loggingIn')}`
 
     const overlay = showLoadingOverlay()
 
@@ -126,9 +127,9 @@ export function renderLogin(onSuccess) {
       }, 480)
     } catch (err) {
       overlay.remove()
-      showMsg(err.message || 'Login failed. Try again.')
+      showMsg(err.message || t('login.errFailed'))
       submitBtn.disabled = false
-      submitBtn.textContent = 'Log in'
+      submitBtn.textContent = t('login.login')
     }
   })
 }
@@ -136,7 +137,7 @@ export function renderLogin(onSuccess) {
 function showLoadingOverlay() {
   const el = document.createElement('div')
   el.className = 'auth-loading'
-  el.innerHTML = `<div class="spinner spinner-lg"></div><p>Authenticating…</p>`
+  el.innerHTML = `<div class="spinner spinner-lg"></div><p>${t('login.authenticating')}</p>`
   document.body.appendChild(el)
   requestAnimationFrame(() => el.classList.add('show'))
   return el

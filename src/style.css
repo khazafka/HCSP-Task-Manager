@@ -69,7 +69,15 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   background:
     radial-gradient(130% 100% at 50% -10%, #1c2836 0%, #141b24 55%, #0f151c 100%);
   transition: opacity 0.5s ease, filter 0.5s ease, transform 0.5s ease;
+  /* Login is always the dark starfield — pin text to light so light themes
+     (e.g. Telkom) don't render dark-on-dark. Accent (--green) still follows theme. */
+  --text: #e7edf3;
+  --text-dim: #9fb1c1;
+  --text-faint: #6a7c8c;
+  --line: #2b3947;
 }
+.auth-screen h1, .auth-screen h2, .auth-screen h3 { color: var(--text); }
+[data-theme="telkom"] .auth-btn-primary { color: #fff; }
 
 /* leaving animation when login succeeds */
 .auth-screen.leaving {
@@ -920,6 +928,25 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 .notif-empty { padding: 28px 16px; text-align: center; color: var(--text-faint); font-size: 12.5px; }
 
 /* ============================================================
+   LANGUAGE — globe switcher
+   ============================================================ */
+.lang-wrap { position: relative; }
+.lang-btn { width: auto; padding: 0 11px; gap: 7px; font: 600 12px var(--sans); }
+.lang-btn span { letter-spacing: 0.5px; }
+.lang-menu {
+  position: absolute; top: 46px; right: 0; width: 190px; z-index: 55;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 6px; box-shadow: 0 18px 34px -18px rgba(0,0,0,.5);
+}
+.lang-menu[hidden] { display: none; }
+.lang-menu button {
+  width: 100%; text-align: left; background: none; border: none; padding: 9px 11px; border-radius: 5px;
+  color: var(--text); font: 500 13px var(--sans); cursor: pointer;
+}
+.lang-menu button:hover { background: var(--bg-3); }
+.lang-menu button.on { background: var(--green-dim); color: var(--green); font-weight: 600; }
+
+/* ============================================================
    NOTIFICATIONS — square, slide in from right, draining bar, stack up
    ============================================================ */
 .notif-stack {
@@ -949,3 +976,85 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
 .notif.error .notif-bar i { background: var(--danger); }
 .notif.warning .notif-bar i { background: var(--amber); }
 @keyframes drain { from { width: 100%; } to { width: 0%; } }
+
+/* ============================================================
+   APP LOADING OVERLAY (language switch, etc.)
+   ============================================================ */
+.app-loading {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center;
+  background: rgba(10, 14, 18, 0.5); backdrop-filter: blur(6px);
+  opacity: 0; transition: opacity 0.25s ease;
+}
+.app-loading.show { opacity: 1; }
+.app-loading p { color: #e7edf3; font-size: 13px; letter-spacing: 0.3px; }
+
+/* ============================================================
+   SIDEBAR — collapse/expand (burger) + dock left/right
+   ============================================================ */
+.app-sidebar { overflow: hidden; transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1), padding 0.32s cubic-bezier(0.4, 0, 0.2, 1); }
+.nav-item span:not(.avatar) { white-space: nowrap; transition: opacity 0.18s ease; }
+.nav-spacer { cursor: grab; }
+.app-sidebar.dragging, .app-sidebar.dragging * { cursor: grabbing !important; }
+.sidebar-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 14px; border-bottom: 1px solid var(--line-soft); margin-bottom: 6px; }
+.sidebar-top .app-brand { border: none; padding: 0; margin: 0; }
+.burger {
+  display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex-shrink: 0; background: none; border: none; cursor: pointer;
+  border-radius: 7px; transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), background 0.15s ease;
+}
+.burger:hover { background: var(--bg-3); }
+.burger span { display: block; width: 16px; height: 2px; border-radius: 2px; background: var(--text-dim); transition: background 0.15s ease; }
+.burger:hover span { background: var(--green); }
+.app-shell.collapsed .burger { transform: rotate(90deg); }
+
+.app-shell.collapsed .app-sidebar { width: 66px; padding-left: 10px; padding-right: 10px; }
+.app-shell.collapsed .app-brand,
+.app-shell.collapsed .nav-section,
+.app-shell.collapsed .nav-foot { display: none; }
+.app-shell.collapsed .nav-item span:not(.avatar) { opacity: 0; }
+.app-shell.collapsed .sidebar-top { justify-content: center; border-bottom: none; padding-bottom: 8px; }
+
+.app-shell.dock-right { flex-direction: row-reverse; }
+.app-shell.dock-right .app-sidebar { border-right: none; border-left: 1px solid var(--line); }
+
+/* drag-to-dock edge hint */
+.dock-hint { position: fixed; top: 0; bottom: 0; left: 0; width: 96px; z-index: 130; pointer-events: none; background: var(--green-dim); border-right: 3px solid var(--green); }
+.dock-hint.right { left: auto; right: 0; border-right: none; border-left: 3px solid var(--green); }
+
+/* right-click context menu */
+.ctx-menu {
+  position: fixed; z-index: 120; min-width: 170px;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 6px; box-shadow: 0 18px 34px -18px rgba(0,0,0,.5);
+}
+.ctx-menu[hidden] { display: none; }
+.ctx-menu button { width: 100%; text-align: left; background: none; border: none; padding: 9px 11px; border-radius: 5px; color: var(--text); font: 500 13px var(--sans); cursor: pointer; display: flex; align-items: center; gap: 9px; }
+.ctx-menu button:hover { background: var(--bg-3); }
+.ctx-menu .ctx-sep { height: 1px; background: var(--line-soft); margin: 5px 4px; }
+
+/* ============================================================
+   PROFILE — avatar dropdown
+   ============================================================ */
+.profile-wrap { position: relative; }
+.avatar { cursor: pointer; }
+.avatar-sm { width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; }
+.profile-trigger { align-items: center; gap: 10px; }
+.profile-menu {
+  position: absolute; top: 46px; right: 0; width: 244px; z-index: 60; overflow: hidden;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 22px 44px -22px rgba(0,0,0,.55);
+}
+.profile-menu-up { top: auto; bottom: calc(100% + 8px); left: 0; right: auto; }
+.profile-menu[hidden] { display: none; }
+.profile-head { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); display: flex; gap: 11px; align-items: center; }
+.profile-head .pa { width: 38px; height: 38px; border-radius: 50%; background: var(--green-dim); color: var(--green); display: flex; align-items: center; justify-content: center; font: 600 13px var(--display); border: 1px solid var(--green-line); flex-shrink: 0; }
+.profile-head .pn { font: 600 13px var(--sans); color: var(--text); }
+.profile-head .pe { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 165px; }
+.profile-items { padding: 6px; }
+.profile-items button { width: 100%; text-align: left; background: none; border: none; padding: 9px 11px; border-radius: 6px; color: var(--text); font: 500 13px var(--sans); cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.profile-items button svg { width: 16px; height: 16px; color: var(--text-dim); }
+.profile-items button:hover { background: var(--bg-3); }
+.profile-items button.danger { color: var(--danger); }
+.profile-items button.danger svg { color: var(--danger); }
+.profile-sep { height: 1px; background: var(--line-soft); margin: 4px 8px; }

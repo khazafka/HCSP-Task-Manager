@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { normalizeRole, can, ICON } from '../main.js';
+import { t } from '../utils/i18n.js';
 
 export async function renderDashboard(profile) {
   const view = document.querySelector('#appContent .view');
@@ -35,21 +36,21 @@ export async function renderDashboard(profile) {
 
   // Role-specific 4th metric
   const extra = {
-    customer: { label: 'My Drafts', value: count('draft') },
-    team: { label: 'Assigned to me', value: inProgress },
-    hcam: { label: 'Awaiting review', value: count('review') },
-    management: { label: 'Closed', value: count('closed') },
-    admin: { label: 'Total users', value: '—' },
-  }[role] || { label: 'Pending', value: pending };
+    customer: { label: t('dash.myDrafts'), value: count('draft') },
+    team: { label: t('dash.assignedToMe'), value: inProgress },
+    hcam: { label: t('dash.awaitingReview'), value: count('review') },
+    management: { label: t('dash.closed'), value: count('closed') },
+    admin: { label: t('dash.totalUsers'), value: '—' },
+  }[role] || { label: t('dash.pending'), value: pending };
 
   // Action buttons by permission
   const actions = [];
-  if (can('createOrder', role)) actions.push(`<button class="btn btn-primary" data-act="create">${plus()} Create order</button>`);
-  if (can('assignOrder', role)) actions.push(`<button class="btn btn-ghost" data-act="orders">Assign orders</button>`);
-  if (can('reviewOrder', role)) actions.push(`<button class="btn btn-ghost" data-act="orders">Review queue</button>`);
-  if (can('uploadReport', role)) actions.push(`<button class="btn btn-primary" data-act="reports">${plus()} Upload report</button>`);
-  if (can('manageUsers', role)) actions.push(`<button class="btn btn-ghost" data-act="users">Manage users</button>`);
-  if (actions.length === 0) actions.push(`<button class="btn btn-ghost" data-act="orders">View my orders</button>`);
+  if (can('createOrder', role)) actions.push(`<button class="btn btn-primary" data-act="create">${plus()} ${t('dash.createOrder')}</button>`);
+  if (can('assignOrder', role)) actions.push(`<button class="btn btn-ghost" data-act="orders">${t('dash.assignOrders')}</button>`);
+  if (can('reviewOrder', role)) actions.push(`<button class="btn btn-ghost" data-act="orders">${t('dash.reviewQueue')}</button>`);
+  if (can('uploadReport', role)) actions.push(`<button class="btn btn-primary" data-act="reports">${plus()} ${t('dash.uploadReport')}</button>`);
+  if (can('manageUsers', role)) actions.push(`<button class="btn btn-ghost" data-act="users">${t('dash.manageUsers')}</button>`);
+  if (actions.length === 0) actions.push(`<button class="btn btn-ghost" data-act="orders">${t('dash.viewMyOrders')}</button>`);
 
   // Weekly bar data (best-effort: bucket by created_at day, else demo)
   const bars = weeklyBars(visible);
@@ -59,23 +60,23 @@ export async function renderDashboard(profile) {
 
   view.innerHTML = `
     <div class="page-head">
-      <h1>Welcome back, ${firstName}</h1>
-      <p>Here's what's happening across your ${role === 'customer' ? 'orders' : 'workspace'} today.</p>
+      <h1>${t('dash.welcome')}, ${firstName}</h1>
+      <p>${role === 'customer' ? t('dash.subOrders') : t('dash.subWorkspace')}</p>
     </div>
 
     <div class="actions-row">${actions.join('')}</div>
 
     <div class="cards-grid">
-      ${metric('Total Orders', total, '+ this period', false)}
-      ${metric('In Progress', inProgress, 'active now', false)}
-      ${metric('Completed', completed, 'delivered', false)}
-      ${metric(extra.label, extra.value, 'snapshot', false)}
+      ${metric(t('dash.totalOrders'), total, '+ ' + t('dash.thisPeriod'), false)}
+      ${metric(t('dash.inProgress'), inProgress, t('dash.activeNow'), false)}
+      ${metric(t('dash.completed'), completed, t('dash.delivered'), false)}
+      ${metric(extra.label, extra.value, t('dash.snapshot'), false)}
     </div>
 
     <div class="panels-grid">
       <div class="panel">
-        <div class="panel-title">Orders this week</div>
-        <div class="panel-sub">Volume by day</div>
+        <div class="panel-title">${t('dash.ordersThisWeek')}</div>
+        <div class="panel-sub">${t('dash.volumeByDay')}</div>
         <div class="bars">
           ${bars.map(b => `
             <div class="bar-col">
@@ -86,41 +87,41 @@ export async function renderDashboard(profile) {
       </div>
 
       <div class="panel">
-        <div class="panel-title">Status breakdown</div>
-        <div class="panel-sub">Across visible orders</div>
+        <div class="panel-title">${t('dash.statusBreakdown')}</div>
+        <div class="panel-sub">${t('dash.acrossVisible')}</div>
         <div style="margin-top:4px">
-          ${statusRow('In Progress', inProgress, total, 'pill-amber')}
-          ${statusRow('Completed', completed, total, 'pill-green')}
-          ${statusRow('Pending', pending, total, 'pill-dim')}
+          ${statusRow(t('dash.inProgress'), inProgress, total, 'pill-amber')}
+          ${statusRow(t('dash.completed'), completed, total, 'pill-green')}
+          ${statusRow(t('dash.pending'), pending, total, 'pill-dim')}
         </div>
       </div>
     </div>
 
     <div class="panels-grid" style="margin-top:16px">
       <div class="panel">
-        <div class="panel-title">Recent orders</div>
-        <div class="panel-sub">${role === 'customer' ? 'Your latest requests' : 'Latest across the team'}</div>
+        <div class="panel-title">${t('dash.recentOrders')}</div>
+        <div class="panel-sub">${role === 'customer' ? t('dash.yourLatest') : t('dash.latestTeam')}</div>
         ${recent.length ? recent.map(o => `
           <div class="row-item" data-order="${o.id}" style="cursor:pointer">
             <div>
-              <div class="row-main">#ORD-${o.id} · ${o.order_title || 'Untitled order'}</div>
+              <div class="row-main">#ORD-${o.id} · ${o.order_title || t('ord.untitled')}</div>
               <div class="row-sub">${o.contact_number || '—'}</div>
             </div>
             <span class="pill ${pillClass(o.status)}">${o.status || 'draft'}</span>
-          </div>`).join('') : `<div class="empty">No orders yet${can('createOrder', role) ? ' — create your first one above.' : '.'}</div>`}
+          </div>`).join('') : `<div class="empty">${t('dash.noOrders')}${can('createOrder', role) ? t('dash.noOrdersCta') : '.'}</div>`}
       </div>
 
       <div class="panel">
-        <div class="panel-title">Activity</div>
-        <div class="panel-sub">Recent updates</div>
+        <div class="panel-title">${t('dash.activity')}</div>
+        <div class="panel-sub">${t('dash.recentUpdates')}</div>
         ${recent.length ? recent.slice(0, 4).map(o => `
           <div class="timeline-item">
             <div class="timeline-dot"></div>
             <div>
-              <div class="timeline-main">#ORD-${o.id} marked <b style="color:var(--green)">${o.status || 'draft'}</b></div>
+              <div class="timeline-main">#ORD-${o.id} ${t('dash.marked')} <b style="color:var(--green)">${o.status || 'draft'}</b></div>
               <div class="timeline-time">${o.order_title || 'Order'}</div>
             </div>
-          </div>`).join('') : `<div class="empty">No recent activity.</div>`}
+          </div>`).join('') : `<div class="empty">${t('dash.noActivity')}</div>`}
       </div>
     </div>
   `;
