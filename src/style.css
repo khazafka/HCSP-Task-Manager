@@ -1480,6 +1480,63 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; color: var(--text); 
   justify-content: flex-end;
   gap: 10px;
 }
+.confirm-modal { max-width: 500px; }
+.confirm-note {
+  color: var(--text-dim);
+  background: var(--bg-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  margin-bottom: 16px;
+}
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+.btn-danger:hover { filter: brightness(.96); }
+.file-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-3);
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.file-picker input[type="file"] {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.file-picker-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font: 600 12.5px var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.file-picker-label:hover { border-color: var(--red); color: var(--red); }
+.file-picker-name {
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .work-report-panel {
   display: flex;
   flex-direction: column;

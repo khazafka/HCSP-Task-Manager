@@ -3,7 +3,8 @@ import { renderOrderDetails } from './order-detail.js';
 import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
-import { t } from '../utils/i18n.js';
+import { t, tf } from '../utils/i18n.js';
+import { confirmDialog } from '../utils/dialogs.js';
 import { buildBusinessUnitOptions } from '../utils/business-units.js';
 import { subscribeOrders, debounce } from '../utils/realtime.js';
 
@@ -464,7 +465,13 @@ export async function renderOrders(profile) {
 }
 
 async function deleteOrder(orderId, profile) {
-  if (!confirm(`${t('ord.deleteConfirm')} #ORD-${orderId}?`)) return;
+  const confirmed = await confirmDialog({
+    title: t('dlg.deleteOrderTitle'),
+    message: tf('dlg.deleteOrderBody', { id: `#ORD-${orderId}` }),
+    confirmText: t('common.delete'),
+    tone: 'danger',
+  });
+  if (!confirmed) return;
   const { error } = await supabase.from('orders').delete().eq('id', orderId);
   if (error) { notify(error.message, 'error'); return; }
   notify(`#ORD-${orderId} ${t('ord.deleted')}`, 'success');

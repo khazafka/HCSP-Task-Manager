@@ -4,7 +4,10 @@ import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
 import { deleteAttachmentFiles, downloadAttachments, formatFileSize, openAttachment, uploadReportFiles, validateReportFiles } from '../utils/report-files.js';
-import { t } from '../utils/i18n.js';
+import { t, tf } from '../utils/i18n.js';
+import { confirmDialog } from '../utils/dialogs.js';
+
+const STATUS_FLOW = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
 
 function pillClass(status) {
   const s = (status || '').toLowerCase();
@@ -138,9 +141,14 @@ function canEditDetails(order, profile, role) {
 }
 
 function allowedStatusTargets(order, profile, role) {
+  if (role === 'admin') {
+    if (order.status === 'Closed') return ['Completed'];
+    return STATUS_FLOW.filter(status => status !== order.status);
+  }
+
   const assignedTeam = role === 'team' && isAssignedToOrder(order, profile?.id);
   const isCreator = role === 'customer' && order.created_by === profile?.id;
-  const canHcamAdmin = ['hcam', 'admin'].includes(role);
+  const canHcamAdmin = role === 'hcam';
 
   switch (order.status) {
     case 'Draft':
@@ -169,14 +177,14 @@ function showReportDetail(report) {
     <div class="modal-card report-modal" role="dialog" aria-modal="true">
       <div class="modal-head">
         <div>
-          <h3>${escapeHtml(report.report_title || 'Work report')}</h3>
-          <p>${reportDateLabel(report)} · ${attachments.length} attachment(s)</p>
+          <h3>${escapeHtml(report.report_title || t('rep.untitled'))}</h3>
+          <p>${reportDateLabel(report)} - ${tf('rep.fileCount', { count: attachments.length })}</p>
         </div>
-        <button class="modal-x" type="button" data-modal-cancel aria-label="Close">&times;</button>
+        <button class="modal-x" type="button" data-modal-cancel aria-label="${t('common.close')}">&times;</button>
       </div>
-      <div class="detail-label">Notes</div>
-      <div class="detail-text" style="margin-bottom:14px">${escapeHtml(report.notes || 'No notes provided.')}</div>
-      <div class="detail-label">Attachments</div>
+      <div class="detail-label">${t('rep.notes')}</div>
+      <div class="detail-text" style="margin-bottom:14px">${escapeHtml(report.notes || t('rep.noNotes'))}</div>
+      <div class="detail-label">${t('rep.attachments')}</div>
       ${attachments.length ? `
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
           ${attachments.map(a => `
@@ -185,11 +193,11 @@ function showReportDetail(report) {
               <small>${formatFileSize(a.file_size)}</small>
             </button>
           `).join('')}
-        </div>` : '<div class="empty">No attachments uploaded.</div>'}
+        </div>` : `<div class="empty">${t('rep.noFiles')}</div>`}
       <div class="modal-actions">
-        <button class="btn btn-ghost" type="button" data-modal-cancel>Close</button>
-        <button class="btn btn-ghost" type="button" data-export-report-pdf>Export PDF</button>
-        <button class="btn btn-primary" type="button" data-download-report ${attachments.length ? '' : 'disabled'}>Unduh semua</button>
+        <button class="btn btn-ghost" type="button" data-modal-cancel>${t('common.close')}</button>
+        <button class="btn btn-ghost" type="button" data-export-report-pdf>${t('rep.exportPdf')}</button>
+        <button class="btn btn-primary" type="button" data-download-report ${attachments.length ? '' : 'disabled'}>${t('rep.downloadAll')}</button>
       </div>
     </div>
   `;
@@ -325,12 +333,12 @@ export async function renderOrderDetails(orderId, profile) {
                   <span style="font:600 13px var(--sans);color:var(--text)">[Laporan #${workReports.length - idx}] ${escapeHtml(r.report_title)}</span>
                   <span style="font-size:11px;color:var(--text-faint)">${reportDateLabel(r)}</span>
                 </div>
-                <div style="font-size:12.5px;color:var(--text-dim);white-space:pre-line">${escapeHtml(r.notes || 'No notes provided.')}</div>
+                <div style="font-size:12.5px;color:var(--text-dim);white-space:pre-line">${escapeHtml(r.notes || t('rep.noNotes'))}</div>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
-                  <button class="btn btn-ghost" data-report-detail="${r.id}" style="padding:7px 10px">Lihat detail</button>
-                  <button class="btn btn-ghost" data-report-download="${r.id}" style="padding:7px 10px" ${r.work_report_attachments?.length ? '' : 'disabled'}>Unduh semua</button>
-                  ${canDeleteReport ? `<button class="btn btn-ghost" data-report-delete="${r.id}" style="padding:7px 10px;color:var(--danger);border-color:rgba(255,107,107,.3)">Delete</button>` : ''}
-                  <span class="row-sub">${r.work_report_attachments?.length || 0} attachment(s)</span>
+                  <button class="btn btn-ghost" data-report-detail="${r.id}" style="padding:7px 10px">${t('rep.viewDetail')}</button>
+                  <button class="btn btn-ghost" data-report-download="${r.id}" style="padding:7px 10px" ${r.work_report_attachments?.length ? '' : 'disabled'}>${t('rep.downloadAll')}</button>
+                  ${canDeleteReport ? `<button class="btn btn-ghost" data-report-delete="${r.id}" style="padding:7px 10px;color:var(--danger);border-color:rgba(255,107,107,.3)">${t('rep.delete')}</button>` : ''}
+                  <span class="row-sub">${tf('rep.fileCount', { count: r.work_report_attachments?.length || 0 })}</span>
                 </div>
               </div>`).join('') : `<div class="empty">${t('det.noReports')}</div>`}
           </div>
@@ -366,10 +374,14 @@ export async function renderOrderDetails(orderId, profile) {
             <div class="detail-block">
               <h3>${t('det.submitReport')}</h3>
               <input id="repTitle" class="input" placeholder="${t('det.reportTitle')}" style="margin-bottom:8px"/>
-              <input id="repDate" class="input" type="date" value="${todayValue()}" style="margin-bottom:8px"/>
-              <textarea id="repNotes" class="textarea" rows="4" placeholder="Notes / report description" style="margin-bottom:8px"></textarea>
-              <input id="repFiles" class="input" type="file" multiple style="margin-bottom:8px"/>
-              <div class="row-sub" style="margin-bottom:10px">Multiple files allowed. Max 10 MB per file.</div>
+              <input id="repDate" class="input" type="date" aria-label="${t('det.reportDate')}" value="${todayValue()}" style="margin-bottom:8px"/>
+              <textarea id="repNotes" class="textarea" rows="4" placeholder="${t('det.reportNotes')}" style="margin-bottom:8px"></textarea>
+              <div class="file-picker">
+                <label class="file-picker-label" for="repFiles">${t('det.chooseFiles')}</label>
+                <input id="repFiles" type="file" multiple/>
+                <span class="file-picker-name" id="repFilesName">${t('det.noFileChosen')}</span>
+              </div>
+              <div class="row-sub" style="margin-bottom:10px">${t('det.fileHelp')}</div>
               <button id="submitReportBtn" class="btn btn-primary" style="width:100%;justify-content:center">${t('det.sendReport')}</button>
             </div>` : ''}
         </div>
@@ -380,7 +392,13 @@ export async function renderOrderDetails(orderId, profile) {
   container.querySelector('#backBtn').addEventListener('click', () => renderOrders(profile));
   container.querySelector('#editBtn')?.addEventListener('click', () => renderEditOrder(order.id, profile));
   container.querySelector('#deleteBtn')?.addEventListener('click', async () => {
-    if (!confirm(`${t('ord.deleteConfirm')} #ORD-${order.id}?`)) return;
+    const confirmed = await confirmDialog({
+      title: t('dlg.deleteOrderTitle'),
+      message: tf('dlg.deleteOrderBody', { id: `#ORD-${order.id}` }),
+      confirmText: t('common.delete'),
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     await supabase.from('orders').delete().eq('id', order.id);
     notify(`#ORD-${order.id} ${t('ord.deleted')}`, 'success');
     renderOrders(profile);
@@ -405,7 +423,14 @@ export async function renderOrderDetails(orderId, profile) {
   container.querySelectorAll('[data-report-delete]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const report = workReports.find(r => `${r.id}` === btn.dataset.reportDelete);
-      if (!report || !confirm(`Delete report "${report.report_title || report.id}"?`)) return;
+      if (!report) return;
+      const confirmed = await confirmDialog({
+        title: t('dlg.deleteReportTitle'),
+        message: tf('dlg.deleteReportBody', { title: report.report_title || `#${report.id}` }),
+        confirmText: t('common.delete'),
+        tone: 'danger',
+      });
+      if (!confirmed) return;
       try {
         await deleteAttachmentFiles(report.work_report_attachments || []);
       } catch (err) {
@@ -491,6 +516,23 @@ export async function renderOrderDetails(orderId, profile) {
         notify('You are not allowed to move this order to that status.', 'warning');
         return;
       }
+      if (newStatus === 'Closed') {
+        const confirmed = await confirmDialog({
+          title: t('dlg.closeOrderTitle'),
+          message: t('dlg.closeOrderBody'),
+          confirmText: t('dlg.closeOrderConfirm'),
+          tone: 'danger',
+        });
+        if (!confirmed) return;
+      }
+      if (order.status === 'Closed' && newStatus !== 'Closed') {
+        const confirmed = await confirmDialog({
+          title: t('dlg.reopenOrderTitle'),
+          message: tf('dlg.reopenOrderBody', { status: newStatus }),
+          confirmText: t('dlg.reopenOrderConfirm'),
+        });
+        if (!confirmed) return;
+      }
       const { error: e } = await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
       if (e) { notify(e.message, 'error'); return; }
       await recordStatusHistory(order.id, newStatus);
@@ -507,6 +549,16 @@ export async function renderOrderDetails(orderId, profile) {
   }
 
   if (canAddReport) {
+    const fileInput = container.querySelector('#repFiles');
+    const fileName = container.querySelector('#repFilesName');
+    fileInput?.addEventListener('change', () => {
+      const files = Array.from(fileInput.files || []);
+      if (!fileName) return;
+      fileName.textContent = files.length
+        ? (files.length === 1 ? files[0].name : tf('det.filesSelected', { count: files.length }))
+        : t('det.noFileChosen');
+    });
+
     container.querySelector('#submitReportBtn').addEventListener('click', async () => {
       if (!isAssignedToOrder(order, profile?.id) || !['In Progress', 'Review'].includes(order.status)) {
         notify('Only the assigned Team Solution can submit reports while the order is In Progress or Review.', 'warning');

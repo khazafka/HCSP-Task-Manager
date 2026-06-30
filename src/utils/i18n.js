@@ -8,6 +8,14 @@ const DICT = {
     'hdr.search': 'Search…', 'hdr.pages': 'Pages', 'hdr.notifications': 'Notifications',
     'common.cancel': 'Cancel', 'common.save': 'Save', 'common.back': 'Back',
     'common.noNotifs': 'No notifications yet.',
+    'common.confirm': 'Confirm', 'common.delete': 'Delete', 'common.close': 'Close',
+    'common.confirmAction': 'Confirm action', 'common.confirmHint': 'This action will be recorded in the order history where applicable.',
+    'dlg.deleteOrderTitle': 'Delete order?', 'dlg.deleteOrderBody': 'This will permanently remove order {id} and its related workflow data.',
+    'dlg.deleteReportTitle': 'Delete work report?', 'dlg.deleteReportBody': 'This will remove "{title}" and its attachment records.',
+    'dlg.closeOrderTitle': 'Close this order?', 'dlg.closeOrderBody': 'Closed orders are treated as final archive records. You can reopen them only through admin control.',
+    'dlg.closeOrderConfirm': 'Close order',
+    'dlg.reopenOrderTitle': 'Reopen closed order?', 'dlg.reopenOrderBody': 'This will move the order from Closed back to {status} so the workflow can continue.',
+    'dlg.reopenOrderConfirm': 'Reopen order',
 
     // settings
     'set.title': 'Settings', 'set.sub': 'Personalize your HCSP-OM workspace.',
@@ -142,10 +150,25 @@ const DICT = {
     'det.assignments': 'Team assignments', 'det.noOperators': 'No operators assigned.',
     'det.selectUser': 'Select user…', 'det.assignUser': 'Assign user', 'det.pipeline': 'Lifecycle pipeline',
     'det.updateStatus': 'Update status', 'det.submitReport': 'Submit work report', 'det.reportTitle': 'Report title',
-    'det.reportDesc': 'Report description', 'det.sendReport': 'Send report',
+    'det.reportDesc': 'Report description', 'det.reportDate': 'Report date', 'det.reportNotes': 'Notes / report description',
+    'det.chooseFiles': 'Choose files', 'det.noFileChosen': 'No files selected', 'det.filesSelected': '{count} file(s) selected',
+    'det.fileHelp': 'Multiple files allowed. Max 10 MB per file.', 'det.sendReport': 'Send report',
     'det.statusUpdated': 'Status updated to', 'det.reportSubmitted': 'Work report submitted.',
     'det.noHcam': 'No HCAM assigned to this order — report saved, no one notified.',
     'det.noCustomer': 'This order has no customer (created_by) — no one to notify.',
+
+    // work reports
+    'rep.title': 'Work Reports', 'rep.sub': 'Review submitted work reports and download their attachments.',
+    'rep.loading': 'Loading work reports...', 'rep.count': '{shown} of {total} report(s) shown.',
+    'rep.exportExcel': 'Excel (.xlsx)', 'rep.searchPh': 'Search reports by title, order, notes, service, or unit...',
+    'rep.allStatuses': 'All statuses', 'rep.allUnits': 'All units', 'rep.dateFrom': 'Report date from',
+    'rep.dateTo': 'Report date to', 'rep.clear': 'Clear', 'rep.noMatch': 'No work reports matched your search or filters.',
+    'rep.noExport': 'No work reports to export.', 'rep.exported': 'Exported {count} work report(s).',
+    'rep.fileCount': '{count} file(s)', 'rep.viewDetail': 'View detail', 'rep.downloadAll': 'Download all',
+    'rep.delete': 'Delete', 'rep.untitled': 'Untitled report', 'rep.order': 'Order',
+    'rep.notes': 'Notes', 'rep.attachments': 'Attachments', 'rep.noNotes': 'No notes provided.',
+    'rep.noFiles': 'No attachments uploaded.', 'rep.exportPdf': 'Export PDF',
+    'rep.deleted': 'Work report deleted.', 'rep.storageWarn': 'Storage cleanup failed; deleting database row anyway: {error}',
   },
 
   id: {
@@ -154,6 +177,14 @@ const DICT = {
     'hdr.search': 'Cari…', 'hdr.pages': 'Halaman', 'hdr.notifications': 'Notifikasi',
     'common.cancel': 'Batal', 'common.save': 'Simpan', 'common.back': 'Kembali',
     'common.noNotifs': 'Belum ada notifikasi.',
+    'common.confirm': 'Konfirmasi', 'common.delete': 'Hapus', 'common.close': 'Tutup',
+    'common.confirmAction': 'Konfirmasi aksi', 'common.confirmHint': 'Aksi ini akan dicatat pada riwayat order jika berlaku.',
+    'dlg.deleteOrderTitle': 'Hapus order?', 'dlg.deleteOrderBody': 'Order {id} dan data alurnya akan dihapus permanen.',
+    'dlg.deleteReportTitle': 'Hapus laporan kerja?', 'dlg.deleteReportBody': 'Laporan "{title}" dan catatan lampirannya akan dihapus.',
+    'dlg.closeOrderTitle': 'Tutup order ini?', 'dlg.closeOrderBody': 'Order yang ditutup dianggap sebagai arsip final. Admin masih dapat membukanya kembali bila diperlukan.',
+    'dlg.closeOrderConfirm': 'Tutup order',
+    'dlg.reopenOrderTitle': 'Buka kembali order tertutup?', 'dlg.reopenOrderBody': 'Order akan dipindahkan dari Closed ke {status} agar alur kerja dapat dilanjutkan.',
+    'dlg.reopenOrderConfirm': 'Buka kembali',
 
     'set.title': 'Pengaturan', 'set.sub': 'Sesuaikan workspace HCSP-OM Anda.',
     'set.theme': 'Tema', 'set.themeSub': 'Pilih tampilan antarmuka. Pilihan disimpan di perangkat ini.',
@@ -278,10 +309,24 @@ const DICT = {
     'det.assignments': 'Penugasan Tim', 'det.noOperators': 'Belum ada operator ditugaskan.',
     'det.selectUser': 'Pilih pengguna…', 'det.assignUser': 'Tugaskan pengguna', 'det.pipeline': 'Pipeline Siklus',
     'det.updateStatus': 'Perbarui status', 'det.submitReport': 'Kirim Laporan Kerja', 'det.reportTitle': 'Judul laporan',
-    'det.reportDesc': 'Deskripsi laporan', 'det.sendReport': 'Kirim laporan',
+    'det.reportDesc': 'Deskripsi laporan', 'det.reportDate': 'Tanggal laporan', 'det.reportNotes': 'Catatan / deskripsi laporan',
+    'det.chooseFiles': 'Pilih file', 'det.noFileChosen': 'Belum ada file dipilih', 'det.filesSelected': '{count} file dipilih',
+    'det.fileHelp': 'Boleh memilih beberapa file. Maksimal 10 MB per file.', 'det.sendReport': 'Kirim laporan',
     'det.statusUpdated': 'Status diperbarui menjadi', 'det.reportSubmitted': 'Laporan kerja terkirim.',
     'det.noHcam': 'Tidak ada HCAM yang ditugaskan — laporan tersimpan, tidak ada yang diberi notifikasi.',
     'det.noCustomer': 'Order ini tidak memiliki customer (created_by) — tidak ada yang diberi notifikasi.',
+
+    'rep.title': 'Laporan Kerja', 'rep.sub': 'Tinjau laporan kerja yang dikirim dan unduh lampirannya.',
+    'rep.loading': 'Memuat laporan kerja...', 'rep.count': '{shown} dari {total} laporan ditampilkan.',
+    'rep.exportExcel': 'Excel (.xlsx)', 'rep.searchPh': 'Cari laporan berdasarkan judul, order, catatan, layanan, atau unit...',
+    'rep.allStatuses': 'Semua status', 'rep.allUnits': 'Semua unit', 'rep.dateFrom': 'Tanggal laporan dari',
+    'rep.dateTo': 'Tanggal laporan sampai', 'rep.clear': 'Bersihkan', 'rep.noMatch': 'Tidak ada laporan kerja yang cocok dengan pencarian atau filter.',
+    'rep.noExport': 'Tidak ada laporan kerja untuk diekspor.', 'rep.exported': '{count} laporan kerja diekspor.',
+    'rep.fileCount': '{count} file', 'rep.viewDetail': 'Lihat detail', 'rep.downloadAll': 'Unduh semua',
+    'rep.delete': 'Hapus', 'rep.untitled': 'Laporan tanpa judul', 'rep.order': 'Order',
+    'rep.notes': 'Catatan', 'rep.attachments': 'Lampiran', 'rep.noNotes': 'Tidak ada catatan.',
+    'rep.noFiles': 'Tidak ada lampiran.', 'rep.exportPdf': 'Ekspor PDF',
+    'rep.deleted': 'Laporan kerja dihapus.', 'rep.storageWarn': 'Pembersihan storage gagal; baris database tetap dihapus: {error}',
   },
 };
 
@@ -301,4 +346,11 @@ export function setLang(lang) {
 export function t(key) {
   const l = getLang();
   return (DICT[l] && DICT[l][key]) ?? DICT.en[key] ?? key;
+}
+
+export function tf(key, values = {}) {
+  return Object.entries(values).reduce(
+    (text, [name, value]) => text.replaceAll(`{${name}}`, value ?? ''),
+    t(key),
+  );
 }

@@ -2,6 +2,8 @@ import { supabase } from '../supabase.js';
 import { deleteAttachmentFiles, downloadAttachments, formatFileSize, openAttachment } from '../utils/report-files.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
+import { t, tf } from '../utils/i18n.js';
+import { confirmDialog } from '../utils/dialogs.js';
 
 function escapeHtml(value) {
   return (value ?? '').toString().replace(/[&<>"']/g, ch => ({
@@ -38,10 +40,10 @@ export async function renderWorkReports(profile) {
 
   view.innerHTML = `
     <div class="page-head">
-      <h1>Work Reports</h1>
-      <p>Review submitted work reports and download their attachments.</p>
+      <h1>${t('rep.title')}</h1>
+      <p>${t('rep.sub')}</p>
     </div>
-    <div class="panel"><div class="empty">Loading work reports...</div></div>
+    <div class="panel"><div class="empty">${t('rep.loading')}</div></div>
   `;
 
   const reports = await loadReports(profile);
@@ -89,38 +91,38 @@ function drawReports(view, reports, profile, focusId = '') {
   view.innerHTML = `
     <div class="toolbar">
       <div class="page-head" style="margin:0">
-        <h1>Work Reports</h1>
-        <p>${visibleReports.length} of ${reports.length} report${reports.length === 1 ? '' : 's'} shown.</p>
+        <h1>${t('rep.title')}</h1>
+        <p>${tf('rep.count', { shown: visibleReports.length, total: reports.length })}</p>
       </div>
       ${canExportReports(role) ? `
         <div class="toolbar-tools">
-          <button class="tool-btn" id="exportReportsExcel">Excel (.xlsx)</button>
+          <button class="tool-btn" id="exportReportsExcel">${t('rep.exportExcel')}</button>
         </div>` : ''}
     </div>
     <div class="page-controls page-controls-grid">
-      <input id="reportSearch" class="page-search" type="search" placeholder="Search reports by title, order, notes, service, or unit..." value="${escapeHtml(reportFilters.search)}"/>
+      <input id="reportSearch" class="page-search" type="search" placeholder="${t('rep.searchPh')}" value="${escapeHtml(reportFilters.search)}"/>
       <select id="reportStatusFilter" class="select compact-select">
-        <option value="">All statuses</option>
+        <option value="">${t('rep.allStatuses')}</option>
         ${statuses.map(status => `<option value="${escapeHtml(status)}" ${reportFilters.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
       </select>
       <select id="reportUnitFilter" class="select compact-select">
-        <option value="">All units</option>
+        <option value="">${t('rep.allUnits')}</option>
         ${units.map(unit => `<option value="${escapeHtml(unit)}" ${reportFilters.unit === unit ? 'selected' : ''}>${escapeHtml(unit)}</option>`).join('')}
       </select>
-      <input id="reportDateFrom" class="input compact-input" type="date" value="${escapeHtml(reportFilters.dateFrom)}" aria-label="Report date from"/>
-      <input id="reportDateTo" class="input compact-input" type="date" value="${escapeHtml(reportFilters.dateTo)}" aria-label="Report date to"/>
-      <button id="clearReportFilters" class="btn btn-ghost compact-btn">Clear</button>
+      <input id="reportDateFrom" class="input compact-input" type="date" value="${escapeHtml(reportFilters.dateFrom)}" aria-label="${t('rep.dateFrom')}"/>
+      <input id="reportDateTo" class="input compact-input" type="date" value="${escapeHtml(reportFilters.dateTo)}" aria-label="${t('rep.dateTo')}"/>
+      <button id="clearReportFilters" class="btn btn-ghost compact-btn">${t('rep.clear')}</button>
     </div>
     <div class="panel work-report-panel">
-      ${visibleReports.length ? visibleReports.map(report => reportRow(report, role)).join('') : '<div class="empty">No work reports matched your search or filters.</div>'}
+      ${visibleReports.length ? visibleReports.map(report => reportRow(report, role)).join('') : `<div class="empty">${t('rep.noMatch')}</div>`}
     </div>
   `;
 
   view.querySelector('#exportReportsExcel')?.addEventListener('click', async () => {
-    if (!visibleReports.length) { notify('No work reports to export.', 'warning'); return; }
+    if (!visibleReports.length) { notify(t('rep.noExport'), 'warning'); return; }
     const exp = await import('../utils/export-reports.js');
     await exp.exportReportsExcel(visibleReports);
-    notify(`Exported ${visibleReports.length} work report(s).`, 'success');
+    notify(tf('rep.exported', { count: visibleReports.length }), 'success');
   });
 
   const redraw = () => drawReports(view, reports, profile);
@@ -185,15 +187,22 @@ function drawReports(view, reports, profile, focusId = '') {
   view.querySelectorAll('[data-report-delete]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const report = reports.find(r => `${r.id}` === btn.dataset.reportDelete);
-      if (!report || !confirm(`Delete report "${report.report_title || report.id}"?`)) return;
+      if (!report) return;
+      const confirmed = await confirmDialog({
+        title: t('dlg.deleteReportTitle'),
+        message: tf('dlg.deleteReportBody', { title: report.report_title || `#${report.id}` }),
+        confirmText: t('common.delete'),
+        tone: 'danger',
+      });
+      if (!confirmed) return;
       try {
         await deleteAttachmentFiles(report.work_report_attachments || []);
       } catch (err) {
-        notify(`Report deleted from database, but storage cleanup may fail: ${err.message}`, 'warning');
+        notify(tf('rep.storageWarn', { error: err.message }), 'warning');
       }
       const { error } = await supabase.from('work_reports').delete().eq('id', report.id);
       if (error) { notify(error.message, 'error'); return; }
-      notify('Work report deleted.', 'success');
+      notify(t('rep.deleted'), 'success');
       drawReports(view, reports.filter(r => r.id !== report.id), profile);
     });
   });
@@ -238,16 +247,16 @@ function reportRow(report, role) {
   return `
     <div class="work-report-row">
       <div>
-        <div class="row-main">${escapeHtml(report.report_title || 'Untitled report')}</div>
+        <div class="row-main">${escapeHtml(report.report_title || t('rep.untitled'))}</div>
         <div class="row-sub">#ORD-${report.order_id} · ${escapeHtml(orderTitle(report))}</div>
         <div class="row-sub">${escapeHtml(report.orders?.business_units?.name || '-')} · ${reportDateLabel(report)}</div>
       </div>
       <div class="report-row-meta">
         <span class="pill pill-dim">${escapeHtml(report.orders?.status || 'Order')}</span>
-        <span class="row-sub">${attachments.length} file(s)</span>
-        <button class="btn btn-ghost" data-report-detail="${report.id}" style="padding:7px 10px">Lihat detail</button>
-        <button class="btn btn-ghost" data-report-download="${report.id}" style="padding:7px 10px" ${attachments.length ? '' : 'disabled'}>Unduh semua</button>
-        ${canDeleteReports(role) ? `<button class="btn btn-ghost" data-report-delete="${report.id}" style="padding:7px 10px;color:var(--danger);border-color:rgba(255,107,107,.3)">Delete</button>` : ''}
+        <span class="row-sub">${tf('rep.fileCount', { count: attachments.length })}</span>
+        <button class="btn btn-ghost" data-report-detail="${report.id}" style="padding:7px 10px">${t('rep.viewDetail')}</button>
+        <button class="btn btn-ghost" data-report-download="${report.id}" style="padding:7px 10px" ${attachments.length ? '' : 'disabled'}>${t('rep.downloadAll')}</button>
+        ${canDeleteReports(role) ? `<button class="btn btn-ghost" data-report-delete="${report.id}" style="padding:7px 10px;color:var(--danger);border-color:rgba(255,107,107,.3)">${t('rep.delete')}</button>` : ''}
       </div>
     </div>
   `;
@@ -261,16 +270,16 @@ function showReportDetail(report) {
     <div class="modal-card report-modal" role="dialog" aria-modal="true">
       <div class="modal-head">
         <div>
-          <h3>${escapeHtml(report.report_title || 'Work report')}</h3>
+          <h3>${escapeHtml(report.report_title || t('rep.untitled'))}</h3>
           <p>#ORD-${report.order_id} · ${reportDateLabel(report)}</p>
         </div>
-        <button class="modal-x" type="button" data-modal-cancel aria-label="Close">&times;</button>
+        <button class="modal-x" type="button" data-modal-cancel aria-label="${t('common.close')}">&times;</button>
       </div>
-      <div class="detail-label">Order</div>
+      <div class="detail-label">${t('rep.order')}</div>
       <div class="detail-text" style="margin-bottom:14px">${escapeHtml(orderTitle(report))}</div>
-      <div class="detail-label">Notes</div>
-      <div class="detail-text" style="margin-bottom:14px">${escapeHtml(report.notes || 'No notes provided.')}</div>
-      <div class="detail-label">Attachments</div>
+      <div class="detail-label">${t('rep.notes')}</div>
+      <div class="detail-text" style="margin-bottom:14px">${escapeHtml(report.notes || t('rep.noNotes'))}</div>
+      <div class="detail-label">${t('rep.attachments')}</div>
       ${attachments.length ? `
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
           ${attachments.map(a => `
@@ -279,11 +288,11 @@ function showReportDetail(report) {
               <small>${formatFileSize(a.file_size)}</small>
             </button>
           `).join('')}
-        </div>` : '<div class="empty">No attachments uploaded.</div>'}
+        </div>` : `<div class="empty">${t('rep.noFiles')}</div>`}
       <div class="modal-actions">
-        <button class="btn btn-ghost" type="button" data-modal-cancel>Close</button>
-        <button class="btn btn-ghost" type="button" data-export-report-pdf>Export PDF</button>
-        <button class="btn btn-primary" type="button" data-download-report ${attachments.length ? '' : 'disabled'}>Unduh semua</button>
+        <button class="btn btn-ghost" type="button" data-modal-cancel>${t('common.close')}</button>
+        <button class="btn btn-ghost" type="button" data-export-report-pdf>${t('rep.exportPdf')}</button>
+        <button class="btn btn-primary" type="button" data-download-report ${attachments.length ? '' : 'disabled'}>${t('rep.downloadAll')}</button>
       </div>
     </div>
   `;
