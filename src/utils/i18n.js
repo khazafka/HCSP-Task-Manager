@@ -72,6 +72,12 @@ const DICT = {
     'land.f6t': 'Export', 'land.f6d': 'Export orders to PDF and Excel for reporting.',
     'land.ctaTitle': 'Ready to get started?', 'land.ctaSub': 'Sign in to your HCSP-OM account.',
     'land.footer': 'HCSP-OM · Telkom Indonesia',
+    'land.titleAccent': 'System',
+    'land.chipA': 'End-to-end orders', 'land.chipB': 'Team collaboration', 'land.chipC': 'Real-time insights',
+    'land.s1t': 'Real-time order tracking', 'land.s1d': 'Follow every request across its full lifecycle — from Draft to Closed — with a live status timeline.',
+    'land.s2t': 'Collaborate across business units', 'land.s2d': 'Connect Customers, HCAM, Team Solution, Management, and Admin in one structured flow.',
+    'land.s3t': 'Secure & reliable', 'land.s3d': 'Row-level security, Supabase Auth, and a session-gated API keep every order protected.',
+    'land.s4t': 'Data-driven insights', 'land.s4d': 'Live dashboards, status breakdowns, and PDF / Excel exports for better decisions.',
 
     // orders list
     'ord.title': 'Orders', 'ord.sub': 'Track and manage Human Capital service requests.',
@@ -169,6 +175,12 @@ const DICT = {
     'land.f6t': 'Ekspor', 'land.f6d': 'Ekspor order ke PDF dan Excel untuk pelaporan.',
     'land.ctaTitle': 'Siap untuk mulai?', 'land.ctaSub': 'Masuk ke akun HCSP-OM Anda.',
     'land.footer': 'HCSP-OM · Telkom Indonesia',
+    'land.titleAccent': 'System',
+    'land.chipA': 'Order end-to-end', 'land.chipB': 'Kolaborasi tim', 'land.chipC': 'Wawasan real-time',
+    'land.s1t': 'Pelacakan order real-time', 'land.s1d': 'Pantau setiap permintaan sepanjang siklusnya — dari Draft hingga Closed — dengan linimasa status langsung.',
+    'land.s2t': 'Kolaborasi lintas unit bisnis', 'land.s2d': 'Hubungkan Customer, HCAM, Team Solution, Management, dan Admin dalam satu alur terstruktur.',
+    'land.s3t': 'Aman & andal', 'land.s3d': 'Row-level security, Supabase Auth, dan API ber-sesi menjaga setiap order tetap terlindungi.',
+    'land.s4t': 'Wawasan berbasis data', 'land.s4d': 'Dasbor langsung, rincian status, dan ekspor PDF / Excel untuk keputusan yang lebih baik.',
 
     'ord.title': 'Order', 'ord.sub': 'Pantau dan kelola permintaan layanan Human Capital.',
     'ord.filter': 'Filter', 'ord.sort': 'Urutkan', 'ord.az': 'A–Z', 'ord.za': 'Z–A', 'ord.newest': 'Terbaru', 'ord.oldest': 'Terlama',

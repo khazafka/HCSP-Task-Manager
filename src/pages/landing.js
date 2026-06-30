@@ -1,3 +1,5 @@
+import { getLang, langLabel, setLang } from '../utils/i18n.js';
+
 const ICON = {
   arrow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>`,
   list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>`,
@@ -7,6 +9,7 @@ const ICON = {
   report: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>`,
   users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m20 6-11 11-5-5"/></svg>`,
+  globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z"/></svg>`,
 };
 
 export function renderLanding(onLogin) {
@@ -29,7 +32,16 @@ export function renderLanding(onLogin) {
             <a href="#contact">Contact</a>
           </nav>
 
-          <button class="landing-btn landing-btn-primary" id="lpLoginTop">Get Started</button>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="lang-wrap">
+              <button class="icon-btn lang-btn" id="lpLangBtn" aria-label="Language">${ICON.globe}<span>${langLabel()}</span></button>
+              <div class="lang-menu" id="lpLangMenu" hidden>
+                <button data-lang="en" class="${getLang() === 'en' ? 'on' : ''}">EN · English</button>
+                <button data-lang="id" class="${getLang() === 'id' ? 'on' : ''}">ID · Indonesia</button>
+              </div>
+            </div>
+            <button class="landing-btn landing-btn-primary" id="lpLoginTop">Get Started</button>
+          </div>
         </div>
       </header>
 
@@ -159,6 +171,16 @@ export function renderLanding(onLogin) {
   document.querySelector('#lpLoginTop').addEventListener('click', onLogin);
   document.querySelector('#lpStart').addEventListener('click', onLogin);
   document.querySelector('#lpStart2').addEventListener('click', onLogin);
+
+  const langBtn = document.querySelector('#lpLangBtn');
+  const langMenu = document.querySelector('#lpLangMenu');
+  langBtn.addEventListener('click', (e) => { e.stopPropagation(); langMenu.toggleAttribute('hidden'); });
+  langMenu.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.lang !== getLang()) setLang(b.dataset.lang);
+  }));
+  document.addEventListener('click', (e) => {
+    if (!langMenu.hasAttribute('hidden') && !langMenu.contains(e.target) && !langBtn.contains(e.target)) langMenu.setAttribute('hidden', '');
+  });
 }
 
 function workflowStep(number, title, desc, width) {
