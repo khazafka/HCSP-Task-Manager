@@ -10,6 +10,16 @@ function normalizeWhatsappTarget(value) {
   return digits;
 }
 
+function fonnteErrorMessage(data) {
+  if (!data || typeof data !== 'object') return 'Fonnte rejected the message';
+  return data.reason
+    || data.detail
+    || data.message
+    || data.error
+    || data.msg
+    || 'Fonnte rejected the message';
+}
+
 function normalizeSupabaseUrl(value) {
   const raw = (value || '').trim().replace(/^['"]|['"]$/g, '');
   if (!raw) return '';
@@ -97,6 +107,10 @@ export default async function handler(req, res) {
     const form = new FormData();
     form.append('target', normalizedTarget);
     form.append('message', message);
+    // Queue the notification instead of rejecting it when the Fonnte device is temporarily disconnected.
+    // The target is already normalized to a full international number, so disable country-code rewriting.
+    form.append('connectOnly', 'false');
+    form.append('countryCode', '0');
 
     const fonnteRes = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
@@ -105,11 +119,11 @@ export default async function handler(req, res) {
       },
       body: form,
     });
-    const data = await fonnteRes.json();
-    if (!data.status) {
-      return res.status(502).json({ error: data.reason || data.detail || 'Fonnte rejected the message', data });
+    const data = await fonnteRes.json().catch(() => ({}));
+    if (!fonnteRes.ok || !data.status) {
+      return res.status(502).json({ error: fonnteErrorMessage(data), target: normalizedTarget, data });
     }
-    return res.status(200).json({ ok: true, data });
+    return res.status(200).json({ ok: true, target: normalizedTarget, data });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

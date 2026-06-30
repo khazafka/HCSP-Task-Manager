@@ -21,6 +21,7 @@ export async function createNotification({ recipientId, recipientPhone, orderId,
 
   let waSent = false;
   let waError = '';
+  let waResult = null;
   let phone = recipientPhone;
   if (whatsapp) {
     if (!phone) {
@@ -28,14 +29,21 @@ export async function createNotification({ recipientId, recipientPhone, orderId,
       phone = u?.phone;
     }
     try {
-      await sendWhatsAppMessage(phone || '', body, { recipientId });
+      waResult = await sendWhatsAppMessage(phone || '', body, { recipientId });
       waSent = true;
+      console.info('[notify] WhatsApp request accepted:', {
+        recipientId,
+        orderId,
+        type,
+        target: waResult?.target || phone,
+        response: waResult?.data,
+      });
     } catch (err) {
       waError = err.message || 'WhatsApp request failed';
       console.warn('[notify] WhatsApp send failed:', err.message, { recipientId, orderId, type, phone });
     }
   }
-  return { logged: !error, waSent, waError, phone };
+  return { logged: !error, waSent, waError, phone, waTarget: waResult?.target || phone, waResponse: waResult?.data || null };
 }
 
 // Reads the current user's notifications (RLS already restricts to their own rows).

@@ -4,6 +4,9 @@
 alter table public.orders
 add column if not exists item_order text;
 
+alter table public.orders
+add column if not exists business_unit_other text;
+
 -- If an earlier local migration created service_code, keep its data.
 do $$
 begin

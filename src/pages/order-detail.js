@@ -54,7 +54,7 @@ async function notifyAssignment({ order, assignee, assignmentType }) {
 }
 
 async function notifyReportToHcam({ order, reportTitle, reporterName }) {
-  const hcamAssignees = (order.order_assignments || []).filter(a =>
+  const hcamAssignees = uniqueAssignments(order.order_assignments || []).filter(a =>
     normalizeRole(`${a.assignment_type || ''} ${a.users?.role || ''}`) === 'hcam' ||
     `${a.assignment_type || ''} ${a.users?.role || ''}`.toLowerCase().includes('hcam'));
 
@@ -62,6 +62,7 @@ async function notifyReportToHcam({ order, reportTitle, reporterName }) {
 
   let sent = 0;
   let lastError = '';
+  let lastTarget = '';
   for (const a of hcamAssignees) {
     const res = await createNotification({
       recipientId: a.user_id,
@@ -71,11 +72,14 @@ async function notifyReportToHcam({ order, reportTitle, reporterName }) {
       title: 'Laporan hasil baru',
       body,
     });
-    if (res.waSent) sent++;
+    if (res.waSent) {
+      sent++;
+      lastTarget = res.waTarget || a.users?.phone || lastTarget;
+    }
     else if (res.waError) lastError = res.waError;
   }
 
-  return { total: hcamAssignees.length, sent, waError: lastError };
+  return { total: hcamAssignees.length, sent, waError: lastError, waTarget: lastTarget };
 }
 
 function todayValue() {
@@ -99,6 +103,20 @@ async function fetchWorkReports(orderId) {
 function reportDateLabel(report) {
   const value = report.report_date || report.created_at;
   return value ? new Date(value).toLocaleDateString() : '-';
+}
+
+function assignmentUserId(assignment) {
+  return assignment?.user_id || assignment?.users?.id || '';
+}
+
+function uniqueAssignments(assignments = []) {
+  const seen = new Set();
+  return assignments.filter(assignment => {
+    const key = assignmentUserId(assignment) || `row:${assignment.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function isAssignedToOrder(order, userId) {
@@ -224,7 +242,11 @@ export async function renderOrderDetails(orderId, profile) {
   if (error) { notify(`Error loading order: ${error.message}`, 'error'); return; }
 
   const { data: allUsers } = await supabase.from('users').select('id, full_name, email, role, phone');
-  const assignableUsers = (allUsers || []).filter(u => ['hcam', 'team'].includes(normalizeRole(u.role)));
+  const visibleAssignments = uniqueAssignments(order.order_assignments || []);
+  const assignedUserIds = new Set((order.order_assignments || []).map(assignmentUserId).filter(Boolean));
+  const assignableUsers = (allUsers || [])
+    .filter(u => ['hcam', 'team'].includes(normalizeRole(u.role)))
+    .filter(u => !assignedUserIds.has(u.id));
   const workReports = await fetchWorkReports(orderId);
 
   if (!canViewOrder(order, profile, role)) {
@@ -317,16 +339,16 @@ export async function renderOrderDetails(orderId, profile) {
         <div>
           <div class="detail-block">
             <h3>${t('det.assignments')}</h3>
-            ${order.order_assignments?.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${order.order_assignments.map(a => `
+            ${visibleAssignments.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${visibleAssignments.map(a => `
               <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-3);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:9px 12px">
                 <div><div style="font:600 12.5px var(--sans);color:var(--text)">${a.users?.full_name || '—'}</div><div style="font-size:10.5px;color:var(--text-faint);text-transform:uppercase">${a.assignment_type || a.users?.role || ''}</div></div>
-                ${canAssign ? `<button data-unassign="${a.id}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">&times;</button>` : ''}
+                ${canAssign ? `<button data-unassign-user="${assignmentUserId(a)}" data-unassign="${a.id}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">&times;</button>` : ''}
               </div>`).join('')}</div>` : `<div class="empty" style="padding:10px 0">${t('det.noOperators')}</div>`}
             ${canAssign ? `
               <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-soft);padding-top:12px">
-                <select id="assignUserSelect" class="select"><option value="">${t('det.selectUser')}</option>${assignableUsers.map(u => `<option value="${u.id}" data-role="${u.role}">${u.full_name} (${u.role})</option>`).join('')}</select>
+                <select id="assignUserSelect" class="select"><option value="">${assignableUsers.length ? t('det.selectUser') : 'All assignable users are already assigned'}</option>${assignableUsers.map(u => `<option value="${u.id}" data-role="${escapeHtml(u.role)}">${escapeHtml(u.full_name || u.email || 'Unnamed user')} (${escapeHtml(u.role)})</option>`).join('')}</select>
                 <div style="font-size:11px;color:var(--text-faint)">Assignment WhatsApp is sent to the selected user's phone in User Management, not the order contact number.</div>
-                <button id="assignBtn" class="btn btn-primary" style="width:100%;justify-content:center">${t('det.assignUser')}</button>
+                <button id="assignBtn" class="btn btn-primary" style="width:100%;justify-content:center" ${assignableUsers.length ? '' : 'disabled'}>${t('det.assignUser')}</button>
               </div>` : ''}
           </div>
 
@@ -401,7 +423,23 @@ export async function renderOrderDetails(orderId, profile) {
       const sel = container.querySelector('#assignUserSelect');
       const userId = sel.value;
       if (!userId) { notify('Select a user first.', 'warning'); return; }
+      if (isAssignedToOrder(order, userId)) {
+        notify('This user is already assigned to this order.', 'warning');
+        return;
+      }
       const assignRole = sel.options[sel.selectedIndex].dataset.role;
+      const { data: existingAssignment, error: existingErr } = await supabase
+        .from('order_assignments')
+        .select('id')
+        .eq('order_id', order.id)
+        .eq('user_id', userId)
+        .limit(1);
+      if (existingErr) { notify(existingErr.message, 'error'); return; }
+      if (existingAssignment?.length) {
+        notify('This user is already assigned to this order.', 'warning');
+        renderOrderDetails(order.id, profile);
+        return;
+      }
       const { error: e } = await supabase.from('order_assignments').insert({ order_id: order.id, user_id: userId, assignment_type: assignRole });
       if (e) { notify(e.message, 'error'); return; }
 
@@ -425,13 +463,18 @@ export async function renderOrderDetails(orderId, profile) {
         : { waSent: false, skipped: true };
 
       if (res.skipped) notify('User assigned to order.', 'success');
-      else if (res.waSent) notify('User assigned and WhatsApp notification sent.', 'success');
+      else if (res.waSent) notify(`User assigned and Fonnte accepted WhatsApp for ${res.waTarget || assignee?.phone || 'the selected user'}.`, 'success');
       else notify(`User assigned, but WhatsApp notification could not be sent${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
       renderOrderDetails(order.id, profile);
     });
     container.querySelectorAll('[data-unassign]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        await supabase.from('order_assignments').delete().eq('id', btn.dataset.unassign);
+        const userId = btn.dataset.unassignUser;
+        if (userId) {
+          await supabase.from('order_assignments').delete().eq('order_id', order.id).eq('user_id', userId);
+        } else {
+          await supabase.from('order_assignments').delete().eq('id', btn.dataset.unassign);
+        }
         renderOrderDetails(order.id, profile);
       });
     });
@@ -525,7 +568,7 @@ export async function renderOrderDetails(orderId, profile) {
       if (!reportNotify.total) {
         notify('Report saved, but no assigned HCAM was found to notify.', 'warning');
       } else if (reportNotify.sent) {
-        notify(`Work report submitted and WhatsApp sent to ${reportNotify.sent} HCAM user${reportNotify.sent > 1 ? 's' : ''}.`, 'success');
+        notify(`Work report submitted and Fonnte accepted WhatsApp for ${reportNotify.sent} HCAM user${reportNotify.sent > 1 ? 's' : ''}${reportNotify.waTarget ? ` (last target: ${reportNotify.waTarget})` : ''}.`, 'success');
       } else {
         notify(`Report saved, but WhatsApp could not be sent to assigned HCAM${reportNotify.waError ? `: ${reportNotify.waError}` : '.'}`, 'warning');
       }

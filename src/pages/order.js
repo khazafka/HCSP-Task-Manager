@@ -1,6 +1,5 @@
 import { supabase } from '../supabase.js';
 import { renderOrderDetails } from './order-detail.js';
-import { sendWhatsAppMessage } from '../utils/whatsapp.js';
 import { createNotification } from '../utils/notifications.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
@@ -114,6 +113,7 @@ async function notifyHcamOrderSubmitted(order, businessUnitName, creatorName) {
 
   let sent = 0;
   let lastError = '';
+  let lastTarget = '';
   for (const hcam of hcams) {
     const res = await createNotification({
       recipientId: hcam.id,
@@ -125,20 +125,13 @@ async function notifyHcamOrderSubmitted(order, businessUnitName, creatorName) {
     });
     if (res.waSent) {
       sent++;
+      lastTarget = res.waTarget || hcam.phone || lastTarget;
       continue;
     }
     if (res.waError) lastError = res.waError;
-    try {
-      await sendWhatsAppMessage(hcam.phone, body);
-      sent++;
-    } catch (err) {
-      lastError = err.message || lastError;
-      console.warn('[orders] WhatsApp send failed:', err.message, hcam.phone);
-      // Keep notifying the remaining HCAM users.
-    }
   }
 
-  if (sent) notify(`Order submitted and WhatsApp sent to ${sent} HCAM user${sent > 1 ? 's' : ''}.`, 'success');
+  if (sent) notify(`Order submitted and Fonnte accepted WhatsApp for ${sent} HCAM user${sent > 1 ? 's' : ''}${lastTarget ? ` (last target: ${lastTarget})` : ''}.`, 'success');
   else notify(`Order submitted, but WhatsApp could not be sent${lastError ? `: ${lastError}` : '. Check HCAM phone numbers and Fonnte settings.'}`, 'warning');
 }
 
@@ -540,7 +533,6 @@ async function renderCreateOrderForm(profile) {
     const businessUnitName = isOther ? otherName : (businessUnits.find(u => u.id === businessUnitId)?.name || '');
     const payload = {
       business_unit_id: businessUnitId,
-      business_unit_other: isOther ? (otherName || null) : null,
       item_order: container.querySelector('#itemOrder').value || null,
       contact_number: container.querySelector('#contactNumber').value.trim(),
       order_title: container.querySelector('#orderTitle').value.trim(),
@@ -548,13 +540,24 @@ async function renderCreateOrderForm(profile) {
       status,
       created_by: (await supabase.auth.getUser()).data.user?.id,
     };
+    if (isOther) payload.business_unit_other = otherName || null;
     if (!payload.order_title) { notify(t('cr.titleReq'), 'warning'); return; }
     if (!payload.item_order) { notify('Select a service / item order.', 'warning'); return; }
     if (!payload.contact_number) { notify('Select a contact person with a phone number.', 'warning'); return; }
     if (isOther && !otherName) { notify('Type the other business unit name.', 'warning'); return; }
     if (!isOther && !payload.business_unit_id) { notify('Select a valid business unit.', 'warning'); return; }
 
-    const { data: order, error } = await supabase.from('orders').insert(payload).select('*').single();
+    let { data: order, error } = await supabase.from('orders').insert(payload).select('*').single();
+    if (error && /business_unit_other/i.test(error.message || '') && 'business_unit_other' in payload) {
+      const fallbackPayload = { ...payload };
+      delete fallbackPayload.business_unit_other;
+      const retry = await supabase.from('orders').insert(fallbackPayload).select('*').single();
+      order = retry.data;
+      error = retry.error;
+      if (!error) {
+        notify('Custom business unit column is not in the database yet, so the order was saved without the custom unit name.', 'warning');
+      }
+    }
     if (error) { notify(error.message, 'error'); return; }
     await recordStatusHistory(order.id, status);
     if (status === 'Submitted') {
