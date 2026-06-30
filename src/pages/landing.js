@@ -1,4 +1,4 @@
-import { getLang, langLabel, setLang } from '../utils/i18n.js';
+import { getLang, langLabel, setLang, t } from '../utils/i18n.js';
 
 const ICON = {
   arrow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>`,
@@ -13,6 +13,8 @@ const ICON = {
 };
 
 export function renderLanding(onLogin) {
+  const nextLang = getLang() === 'en' ? 'id' : 'en';
+
   document.querySelector('#app').innerHTML = `
     <main class="landing-page">
       <header class="landing-nav">
@@ -21,26 +23,22 @@ export function renderLanding(onLogin) {
             <span class="brand-mark">T</span>
             <span>
               <strong>Telkom HCSP-OM</strong>
-              <small>Order Management System</small>
+              <small>${t('land.brandSub')}</small>
             </span>
           </a>
 
           <nav class="landing-links" aria-label="Landing navigation">
-            <a href="#features">Features</a>
-            <a href="#workflow">Workflow</a>
-            <a href="#benefits">Benefits</a>
-            <a href="#contact">Contact</a>
+            <a href="#features">${t('land.navFeatures')}</a>
+            <a href="#workflow">${t('land.navWorkflow')}</a>
+            <a href="#benefits">${t('land.navBenefits')}</a>
+            <a href="#contact">${t('land.navContact')}</a>
           </nav>
 
           <div style="display:flex;align-items:center;gap:10px">
-            <div class="lang-wrap">
-              <button class="icon-btn lang-btn" id="lpLangBtn" aria-label="Language">${ICON.globe}<span>${langLabel()}</span></button>
-              <div class="lang-menu" id="lpLangMenu" hidden>
-                <button data-lang="en" class="${getLang() === 'en' ? 'on' : ''}">EN · English</button>
-                <button data-lang="id" class="${getLang() === 'id' ? 'on' : ''}">ID · Indonesia</button>
-              </div>
-            </div>
-            <button class="landing-btn landing-btn-primary" id="lpLoginTop">Get Started</button>
+            <button class="icon-btn lang-btn" id="lpLangBtn" data-next-lang="${nextLang}" aria-label="${t('land.switchLang')}" title="${t('land.switchLang')}">
+              ${ICON.globe}<span>${langLabel()}</span>
+            </button>
+            <button class="landing-btn landing-btn-primary" id="lpLoginTop">${t('land.getStarted')}</button>
           </div>
         </div>
       </header>
@@ -48,39 +46,37 @@ export function renderLanding(onLogin) {
       <section class="landing-hero" id="top">
         <div class="landing-container hero-grid">
           <div class="hero-copy">
-            <p class="landing-eyebrow">Human Capital Order Management</p>
-            <h1>Centralized Order Management for Every Business Unit</h1>
-            <p class="hero-sub">
-              HCSP-OM helps Human Capital teams submit, assign, track, report, and close service orders through one secure internal workflow.
-            </p>
+            <p class="landing-eyebrow">${t('land.heroEyebrow')}</p>
+            <h1>${t('land.heroHeading')}</h1>
+            <p class="hero-sub">${t('land.heroBody')}</p>
 
             <div class="hero-actions">
-              <button class="landing-btn landing-btn-primary landing-btn-lg" id="lpStart">Request Access ${ICON.arrow}</button>
-              <a class="landing-btn landing-btn-outline landing-btn-lg" href="#features">${ICON.list} Learn More</a>
+              <button class="landing-btn landing-btn-primary landing-btn-lg" id="lpStart">${t('land.requestAccess')} ${ICON.arrow}</button>
+              <a class="landing-btn landing-btn-outline landing-btn-lg" href="#features">${ICON.list} ${t('land.learnMore')}</a>
             </div>
           </div>
 
-          <div class="hero-visual" aria-label="Order workflow preview">
+          <div class="hero-visual" aria-label="${t('land.previewAria')}">
             <div class="hero-glow"></div>
             <div class="workflow-card">
               <div class="workflow-head">
                 <div>
-                  <span>Operational Overview</span>
-                  <h2>Order Workflow</h2>
+                  <span>${t('land.previewKicker')}</span>
+                  <h2>${t('land.previewTitle')}</h2>
                 </div>
                 <div class="workflow-badge">HC</div>
               </div>
 
               <div class="workflow-steps">
-                ${workflowStep('1', 'Submit Order', 'Customer submits service item, unit, contact, and request details.', '82')}
-                ${workflowStep('2', 'Assign PIC', 'HCAM assigns Team Solution and sends WhatsApp notifications.', '64')}
-                ${workflowStep('3', 'Track & Report', 'Team updates status, uploads work reports, and closes evidence.', '72')}
+                ${workflowStep('1', t('land.step1Title'), t('land.step1Desc'), '82')}
+                ${workflowStep('2', t('land.step2Title'), t('land.step2Desc'), '64')}
+                ${workflowStep('3', t('land.step3Title'), t('land.step3Desc'), '72')}
               </div>
 
               <div class="hero-stats">
-                <div><strong>24/7</strong><span>Access</span></div>
-                <div><strong>Fast</strong><span>Flow</span></div>
-                <div><strong>Secure</strong><span>RBAC</span></div>
+                <div><strong>24/7</strong><span>${t('land.statAccess')}</span></div>
+                <div><strong>${t('land.statFast')}</strong><span>${t('land.statFlow')}</span></div>
+                <div><strong>${t('land.statSecure')}</strong><span>RBAC</span></div>
               </div>
             </div>
           </div>
@@ -90,18 +86,18 @@ export function renderLanding(onLogin) {
       <section class="landing-section" id="features">
         <div class="landing-container">
           <div class="section-head">
-            <p class="landing-eyebrow">Features</p>
-            <h2>Built for enterprise order operations</h2>
-            <p>Everything needed to manage requests clearly, securely, and efficiently across Human Capital business units.</p>
+            <p class="landing-eyebrow">${t('land.navFeatures')}</p>
+            <h2>${t('land.featuresHeading')}</h2>
+            <p>${t('land.featuresBody')}</p>
           </div>
 
           <div class="feature-grid">
-            ${featureCard(ICON.list, 'Centralized Orders', 'Create draft or submitted orders with service codes, business units, contacts, descriptions, and lifecycle status.')}
-            ${featureCard(ICON.building, 'Business Unit Visibility', 'See ownership by unit, assignment, and status so HCAM and Management can monitor active work.')}
-            ${featureCard(ICON.clock, 'Status Tracking', 'Track Draft, Submitted, Assigned, In Progress, Review, Completed, and Closed with history.')}
-            ${featureCard(ICON.report, 'Work Reports', 'Team Solution can submit dated reports, notes, attachments, PDFs, Excel recaps, and ZIP downloads.')}
-            ${featureCard(ICON.users, 'WhatsApp Notifications', 'Notify HCAM, assignees, and stakeholders through the existing Fonnte notification bridge.')}
-            ${featureCard(ICON.shield, 'Role-Based Access', 'Admin, HCAM, Team Solution, Customer, and Management each get scoped access and actions.')}
+            ${featureCard(ICON.list, t('land.cardOrdersTitle'), t('land.cardOrdersDesc'))}
+            ${featureCard(ICON.building, t('land.cardUnitTitle'), t('land.cardUnitDesc'))}
+            ${featureCard(ICON.clock, t('land.cardStatusTitle'), t('land.cardStatusDesc'))}
+            ${featureCard(ICON.report, t('land.cardReportTitle'), t('land.cardReportDesc'))}
+            ${featureCard(ICON.users, t('land.cardNotifTitle'), t('land.cardNotifDesc'))}
+            ${featureCard(ICON.shield, t('land.cardRbacTitle'), t('land.cardRbacDesc'))}
           </div>
         </div>
       </section>
@@ -109,14 +105,14 @@ export function renderLanding(onLogin) {
       <section class="landing-section workflow-section" id="workflow">
         <div class="landing-container">
           <div class="section-head">
-            <p class="landing-eyebrow">Workflow</p>
-            <h2>Simple order process</h2>
+            <p class="landing-eyebrow">${t('land.navWorkflow')}</p>
+            <h2>${t('land.workflowHeading')}</h2>
           </div>
 
           <div class="process-grid">
-            ${processCard('01', 'Create', 'Submit the order with service item, contact person, business unit, and request description.')}
-            ${processCard('02', 'Assign & Work', 'HCAM assigns users. Team Solution moves the order through active work and uploads reports.')}
-            ${processCard('03', 'Review & Complete', 'HCAM or Management reviews the work, exports evidence, and closes the order lifecycle.')}
+            ${processCard('01', t('land.process1Title'), t('land.process1Desc'))}
+            ${processCard('02', t('land.process2Title'), t('land.process2Desc'))}
+            ${processCard('03', t('land.process3Title'), t('land.process3Desc'))}
           </div>
         </div>
       </section>
@@ -124,24 +120,24 @@ export function renderLanding(onLogin) {
       <section class="landing-section" id="benefits">
         <div class="landing-container benefit-grid">
           <div>
-            <p class="landing-eyebrow">Why HCSP-OM</p>
-            <h2>Designed for faster, cleaner internal operations</h2>
-            <p class="benefit-copy">Reduce scattered communication, manual tracking, unclear ownership, and missing report evidence.</p>
+            <p class="landing-eyebrow">${t('land.whyEyebrow')}</p>
+            <h2>${t('land.whyHeading')}</h2>
+            <p class="benefit-copy">${t('land.whyBody')}</p>
             <div class="benefit-list">
-              ${benefit('Centralized order and report data')}
-              ${benefit('Clear assignment and business unit ownership')}
-              ${benefit('Status-based workflow with audit trail')}
-              ${benefit('Secure admin-managed access')}
+              ${benefit(t('land.benefit1'))}
+              ${benefit(t('land.benefit2'))}
+              ${benefit(t('land.benefit3'))}
+              ${benefit(t('land.benefit4'))}
             </div>
           </div>
 
           <div class="impact-card">
-            <h3>Platform Impact</h3>
+            <h3>${t('land.impactTitle')}</h3>
             <div class="impact-grid">
-              <div><strong>100%</strong><span>Centralized</span></div>
-              <div><strong>7</strong><span>Statuses</span></div>
-              <div><strong>5</strong><span>Roles</span></div>
-              <div><strong>PDF/XLSX</strong><span>Exports</span></div>
+              <div><strong>100%</strong><span>${t('land.impactCentralized')}</span></div>
+              <div><strong>7</strong><span>${t('land.impactStatuses')}</span></div>
+              <div><strong>5</strong><span>${t('land.impactRoles')}</span></div>
+              <div><strong>PDF/XLSX</strong><span>${t('land.impactExports')}</span></div>
             </div>
           </div>
         </div>
@@ -149,10 +145,10 @@ export function renderLanding(onLogin) {
 
       <section class="landing-cta" id="contact">
         <div class="landing-container cta-inner">
-          <p class="landing-eyebrow">Get Started</p>
-          <h2>Ready to streamline your order workflow?</h2>
-          <p>Open HCSP-OM and manage Human Capital orders across business units more efficiently.</p>
-          <button class="landing-btn landing-btn-primary landing-btn-lg" id="lpStart2">Open Dashboard</button>
+          <p class="landing-eyebrow">${t('land.getStarted')}</p>
+          <h2>${t('land.ctaHeading')}</h2>
+          <p>${t('land.ctaBody')}</p>
+          <button class="landing-btn landing-btn-primary landing-btn-lg" id="lpStart2">${t('land.openDashboard')}</button>
         </div>
       </section>
 
@@ -160,9 +156,9 @@ export function renderLanding(onLogin) {
         <div class="landing-container footer-inner">
           <div>
             <strong>Telkom HCSP-OM</strong>
-            <span>Order Management System</span>
+            <span>${t('land.brandSub')}</span>
           </div>
-          <p>&copy; ${new Date().getFullYear()} PT Telekomunikasi Indonesia. All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} ${t('land.rights')}</p>
         </div>
       </footer>
     </main>
@@ -171,15 +167,9 @@ export function renderLanding(onLogin) {
   document.querySelector('#lpLoginTop').addEventListener('click', onLogin);
   document.querySelector('#lpStart').addEventListener('click', onLogin);
   document.querySelector('#lpStart2').addEventListener('click', onLogin);
-
-  const langBtn = document.querySelector('#lpLangBtn');
-  const langMenu = document.querySelector('#lpLangMenu');
-  langBtn.addEventListener('click', (e) => { e.stopPropagation(); langMenu.toggleAttribute('hidden'); });
-  langMenu.querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.lang !== getLang()) setLang(b.dataset.lang);
-  }));
-  document.addEventListener('click', (e) => {
-    if (!langMenu.hasAttribute('hidden') && !langMenu.contains(e.target) && !langBtn.contains(e.target)) langMenu.setAttribute('hidden', '');
+  document.querySelector('#lpLangBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    setLang(e.currentTarget.dataset.nextLang);
   });
 }
 
