@@ -1,11 +1,13 @@
 import { supabase } from '../supabase.js';
 import { renderOrders, renderEditOrder, itemOrderLabel, orderUnitName } from './order.js';
 import { createNotification } from '../utils/notifications.js';
+import { sendWhatsAppMessage } from '../utils/whatsapp.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
 import { deleteAttachmentFiles, downloadAttachments, formatFileSize, openAttachment, uploadReportFiles, validateReportFiles } from '../utils/report-files.js';
 import { t, tf } from '../utils/i18n.js';
 import { confirmDialog } from '../utils/dialogs.js';
+import { waAssignment, waReport, waStatusChanged, waTitle } from '../utils/wa-templates.js';
 
 const STATUS_FLOW = ['Draft', 'Submitted', 'Assigned', 'In Progress', 'Review', 'Completed', 'Closed'];
 
@@ -35,23 +37,27 @@ function orderLink(order) {
   return `${location.origin}/orders/ORD-${order.id}`;
 }
 
-function orderLabel(order) {
-  return `#ORD-${order.id}`;
-}
-
 async function notifyAssignment({ order, assignee, assignmentType }) {
   const role = normalizeRole(assignmentType || assignee?.role);
   if (!['hcam', 'team'].includes(role)) return { notified: false, skipped: true };
 
   const roleLabel = role === 'team' ? 'Team Solution' : 'HCAM';
-  const body = `[HCSP-OM] Assignment Order\n\nOrder   : ${orderLabel(order)}\nLayanan : ${order.order_title || '-'}\nUnit    : ${order.business_units?.name || '-'}\nStatus  : Assigned\nAssigned: ${assignee?.full_name || assignee?.email || '-'} (${roleLabel})\n\nSilakan tindak lanjuti di:\n${orderLink(order)}`;
+  const body = waAssignment({
+    orderId: order.id,
+    service: order.order_title,
+    unit: order.business_units?.name,
+    assignedName: `${assignee?.full_name || assignee?.email || '-'} (${roleLabel})`,
+    link: orderLink(order),
+  });
 
+  // In-app notification lands on the assignee's bell, but the WhatsApp goes to
+  // the order's contact number (not the assignee's profile phone).
   return createNotification({
     recipientId: assignee.id,
-    recipientPhone: assignee.phone,
+    recipientPhone: order.contact_number,
     orderId: order.id,
     type: 'order_assigned',
-    title: `Order assigned to ${roleLabel}`,
+    title: waTitle('assign'),
     body,
   });
 }
@@ -61,28 +67,43 @@ async function notifyReportToHcam({ order, reportTitle, reporterName }) {
     normalizeRole(`${a.assignment_type || ''} ${a.users?.role || ''}`) === 'hcam' ||
     `${a.assignment_type || ''} ${a.users?.role || ''}`.toLowerCase().includes('hcam'));
 
-  const body = `[HCSP-OM] Laporan Hasil Pengerjaan\n\nOrder   : ${orderLabel(order)}\nLayanan : ${order.order_title || '-'}\nUnit    : ${order.business_units?.name || '-'}\nLaporan : ${reportTitle}\nOleh    : ${reporterName || 'Team Solution'}\nWaktu   : ${new Date().toLocaleString()}\n\nSilakan review laporan di:\n${orderLink(order)}`;
+  const body = waReport({
+    orderId: order.id,
+    service: order.order_title,
+    unit: order.business_units?.name,
+    report: reportTitle,
+    by: reporterName || 'Team Solution',
+    time: new Date().toLocaleString(),
+    link: orderLink(order),
+  });
 
-  let sent = 0;
-  let lastError = '';
-  let lastTarget = '';
+  // In-app notifications for HCAM assignees; the WhatsApp is sent once, to the
+  // order's contact number.
   for (const a of hcamAssignees) {
-    const res = await createNotification({
+    await createNotification({
       recipientId: a.user_id,
-      recipientPhone: a.users?.phone,
       orderId: order.id,
       type: 'report_submitted',
-      title: 'Laporan hasil baru',
+      title: waTitle('report'),
       body,
+      whatsapp: false,
     });
-    if (res.waSent) {
-      sent++;
-      lastTarget = res.waTarget || a.users?.phone || lastTarget;
-    }
-    else if (res.waError) lastError = res.waError;
   }
 
-  return { total: hcamAssignees.length, sent, waError: lastError, waTarget: lastTarget };
+  let sent = 0;
+  let waError = '';
+  if (!order.contact_number) {
+    waError = 'no contact number is set on the order';
+  } else {
+    try {
+      await sendWhatsAppMessage(order.contact_number, body);
+      sent = 1;
+    } catch (err) {
+      waError = err.message || 'WhatsApp request failed';
+    }
+  }
+
+  return { total: hcamAssignees.length, sent, waError };
 }
 
 function todayValue() {
@@ -488,7 +509,7 @@ export async function renderOrderDetails(orderId, profile) {
         : { waSent: false, skipped: true };
 
       if (res.skipped) notify('User assigned to order.', 'success');
-      else if (res.waSent) notify(`User assigned and Fonnte accepted WhatsApp for ${res.waTarget || assignee?.phone || 'the selected user'}.`, 'success');
+      else if (res.waSent) notify(`User assigned and WhatsApp sent to the order contact${res.phone ? ` (${res.phone})` : ''}.`, 'success');
       else notify(`User assigned, but WhatsApp notification could not be sent${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
       renderOrderDetails(order.id, profile);
     });
@@ -537,8 +558,14 @@ export async function renderOrderDetails(orderId, profile) {
       if (e) { notify(e.message, 'error'); return; }
       await recordStatusHistory(order.id, newStatus);
       notify(`${t('det.statusUpdated')} ${newStatus}.`, 'success');
-      const statusBody = `[HCSP-OM] Status Order Berubah\n\nOrder   : ${orderLabel(order)}\nLayanan : ${order.order_title || '-'}\nUnit    : ${order.business_units?.name || '-'}\nStatus  : ${newStatus}\n\nLihat detail di:\n${orderLink(order)}`;
-      const res = await createNotification({ recipientId: order.created_by, orderId: order.id, type: 'status_changed', title: `Order ${newStatus}`, body: statusBody });
+      const statusBody = waStatusChanged({
+        orderId: order.id,
+        service: order.order_title,
+        unit: order.business_units?.name,
+        status: newStatus,
+        link: orderLink(order),
+      });
+      const res = await createNotification({ recipientId: order.created_by, recipientPhone: order.contact_number, orderId: order.id, type: 'status_changed', title: `${waTitle('status')} — ${newStatus}`, body: statusBody });
       if (!res.logged) {
         notify(res.reason === 'no-recipient'
           ? t('det.noCustomer')
@@ -617,12 +644,10 @@ export async function renderOrderDetails(orderId, profile) {
         reportTitle: title,
         reporterName: profile?.full_name || profile?.email || 'Team Solution',
       });
-      if (!reportNotify.total) {
-        notify('Report saved, but no assigned HCAM was found to notify.', 'warning');
-      } else if (reportNotify.sent) {
-        notify(`Work report submitted and Fonnte accepted WhatsApp for ${reportNotify.sent} HCAM user${reportNotify.sent > 1 ? 's' : ''}${reportNotify.waTarget ? ` (last target: ${reportNotify.waTarget})` : ''}.`, 'success');
+      if (reportNotify.sent) {
+        notify('Work report submitted and WhatsApp sent to the order contact.', 'success');
       } else {
-        notify(`Report saved, but WhatsApp could not be sent to assigned HCAM${reportNotify.waError ? `: ${reportNotify.waError}` : '.'}`, 'warning');
+        notify(`Report saved, but WhatsApp could not be sent${reportNotify.waError ? `: ${reportNotify.waError}` : '.'}`, 'warning');
       }
       renderOrderDetails(order.id, profile);
       return;

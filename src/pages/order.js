@@ -1,6 +1,8 @@
 import { supabase } from '../supabase.js';
 import { renderOrderDetails } from './order-detail.js';
 import { createNotification } from '../utils/notifications.js';
+import { sendWhatsAppMessage } from '../utils/whatsapp.js';
+import { waOrderSubmitted, waTitle } from '../utils/wa-templates.js';
 import { notify } from '../utils/notify.js';
 import { can, normalizeRole } from '../main.js';
 import { t, tf } from '../utils/i18n.js';
@@ -105,35 +107,44 @@ async function notifyHcamOrderSubmitted(order, businessUnitName, creatorName) {
     : [];
   const hcams = relatedHcams.length ? relatedHcams : allHcams;
 
-  if (!hcams.length) {
-    notify('Order submitted, but no HCAM user with a phone number was found.', 'warning');
-    return;
-  }
+  const body = waOrderSubmitted({
+    orderId: order.id,
+    service: order.order_title,
+    customer: creatorName,
+    unit: businessUnitName,
+    status: order.status,
+    link: `${location.origin}/orders/ORD-${order.id}`,
+  });
 
-  const body = `[HCSP-OM] Order Baru Masuk\n\nOrder   : #ORD-${order.id}\nLayanan : ${order.order_title || '-'}\nCustomer: ${creatorName || '-'}\nUnit    : ${businessUnitName || '-'}\nStatus  : ${order.status}\n\nSilakan review order di:\n${location.origin}/orders/ORD-${order.id}`;
+  // In-app notifications go to each relevant HCAM's bell. The WhatsApp itself
+  // is sent once, to the order's contact number (not any user profile phone).
+  for (const hcam of hcams) {
+    await createNotification({
+      recipientId: hcam.id,
+      orderId: order.id,
+      type: 'order_submitted',
+      title: waTitle('new'),
+      body,
+      whatsapp: false,
+    });
+  }
 
   let sent = 0;
   let lastError = '';
-  let lastTarget = '';
-  for (const hcam of hcams) {
-    const res = await createNotification({
-      recipientId: hcam.id,
-      recipientPhone: hcam.phone,
-      orderId: order.id,
-      type: 'order_submitted',
-      title: 'Order baru masuk',
-      body,
-    });
-    if (res.waSent) {
-      sent++;
-      lastTarget = res.waTarget || hcam.phone || lastTarget;
-      continue;
+  if (!order.contact_number) {
+    lastError = 'no contact number is set on the order';
+  } else {
+    try {
+      await sendWhatsAppMessage(order.contact_number, body);
+      sent = 1;
+    } catch (err) {
+      lastError = err.message || 'WhatsApp request failed';
+      console.warn('[orders] WhatsApp send failed:', err.message, order.contact_number);
     }
-    if (res.waError) lastError = res.waError;
   }
 
-  if (sent) notify(`Order submitted and Fonnte accepted WhatsApp for ${sent} HCAM user${sent > 1 ? 's' : ''}${lastTarget ? ` (last target: ${lastTarget})` : ''}.`, 'success');
-  else notify(`Order submitted, but WhatsApp could not be sent${lastError ? `: ${lastError}` : '. Check HCAM phone numbers and Fonnte settings.'}`, 'warning');
+  if (sent) notify('Order submitted and WhatsApp sent to the order contact.', 'success');
+  else notify(`Order submitted, but WhatsApp could not be sent${lastError ? `: ${lastError}` : '. Check the order contact number and Fonnte settings.'}`, 'warning');
 }
 
 async function recordStatusHistory(orderId, status) {
