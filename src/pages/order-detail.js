@@ -254,16 +254,19 @@ export async function renderOrderDetails(orderId, profile) {
   if (!container) return;
   const role = normalizeRole(profile?.role);
 
-  const { data: order, error } = await supabase
+  const normalizedOrderId = String(orderId || '').replace(/^ORD-/i, '').replace(/^#/, '').trim();
+  const { data: orderRows, error } = await supabase
     .from('orders')
     .select(`
       *, business_units (id, name),
       order_assignments ( id, user_id, assignment_type, users (id, full_name, email, role, phone) )
     `)
-    .eq('id', orderId)
-    .single();
+    .eq('id', normalizedOrderId)
+    .limit(1);
 
   if (error) { notify(`Error loading order: ${error.message}`, 'error'); return; }
+  const order = orderRows?.[0];
+  if (!order) { notify(`Order #ORD-${escapeHtml(normalizedOrderId)} was not found.`, 'error'); return; }
 
   const { data: allUsers } = await supabase.from('users').select('id, full_name, email, role, phone');
   const visibleAssignments = uniqueAssignments(order.order_assignments || []);
@@ -271,7 +274,7 @@ export async function renderOrderDetails(orderId, profile) {
   const assignableUsers = (allUsers || [])
     .filter(u => ['hcam', 'team'].includes(normalizeRole(u.role)))
     .filter(u => !assignedUserIds.has(u.id));
-  const workReports = await fetchWorkReports(orderId);
+  const workReports = await fetchWorkReports(order.id);
 
   if (!canViewOrder(order, profile, role)) {
     container.innerHTML = `
@@ -289,7 +292,7 @@ export async function renderOrderDetails(orderId, profile) {
     const { data: h } = await supabase
       .from('order_status_history')
       .select('status, created_at')
-      .eq('order_id', orderId)
+      .eq('order_id', order.id)
       .order('created_at', { ascending: true });
     history = h || [];
   } catch (_) { /* table may not exist yet */ }
@@ -508,7 +511,7 @@ export async function renderOrderDetails(orderId, profile) {
 
       if (res.skipped) notify('User assigned to order.', 'success');
       else if (res.waSent) notify(`User assigned and WhatsApp sent to ${res.waTarget || res.phone || 'the selected user'}.`, 'success');
-      else notify(`User assigned, but WhatsApp notification could not be sent${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
+      else notify(`User assigned, but WhatsApp notification could not be sent${res.waTarget ? ` to ${res.waTarget}` : ''}${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
       renderOrderDetails(order.id, profile);
     });
     container.querySelectorAll('[data-resend-assignment]').forEach(btn => {
@@ -532,7 +535,7 @@ export async function renderOrderDetails(orderId, profile) {
         btn.textContent = original;
         if (res.skipped) notify('This role does not receive assignment WhatsApp notifications.', 'warning');
         else if (res.waSent) notify(`WhatsApp resent to ${res.waTarget || res.phone || assignee.full_name || 'the assigned user'}.`, 'success');
-        else notify(`WhatsApp could not be sent${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
+        else notify(`WhatsApp could not be sent${res.waTarget ? ` to ${res.waTarget}` : ''}${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
       });
     });
     container.querySelectorAll('[data-unassign]').forEach(btn => {
@@ -669,7 +672,7 @@ export async function renderOrderDetails(orderId, profile) {
       if (reportNotify.sent) {
         notify(`Work report submitted and WhatsApp sent to ${reportNotify.sent} HCAM user${reportNotify.sent > 1 ? 's' : ''}${reportNotify.waTarget ? ` (${reportNotify.waTarget})` : ''}.`, 'success');
       } else {
-        notify(`Report saved, but WhatsApp could not be sent${reportNotify.waError ? `: ${reportNotify.waError}` : '.'}`, 'warning');
+        notify(`Report saved, but WhatsApp could not be sent${reportNotify.waTarget ? ` to ${reportNotify.waTarget}` : ''}${reportNotify.waError ? `: ${reportNotify.waError}` : '.'}`, 'warning');
       }
       renderOrderDetails(order.id, profile);
       return;

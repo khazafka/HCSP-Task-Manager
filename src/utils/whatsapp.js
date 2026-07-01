@@ -19,7 +19,11 @@ export const sendWhatsAppMessage = async (target, message, options = {}) => {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const detail = data.data?.reason || data.data?.detail || data.data?.message || data.error;
-    throw new Error(detail || 'Failed to send WhatsApp message');
+    const err = new Error(detail || 'Failed to send WhatsApp message');
+    err.status = res.status;
+    err.payload = data;
+    err.target = data.target;
+    throw err;
   }
   return data;
 };
