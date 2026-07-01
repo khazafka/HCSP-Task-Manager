@@ -105,6 +105,14 @@ function todayValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function waReceipt(result) {
+  const data = result?.waResponse;
+  const id = Array.isArray(data?.id) ? data.id.filter(Boolean).join(', ') : data?.id;
+  const process = Array.isArray(data?.process) ? data.process.filter(Boolean).join(', ') : data?.process;
+  const parts = [id ? `ID: ${id}` : '', process ? `Process: ${process}` : ''].filter(Boolean);
+  return parts.length ? ` (${parts.join(' · ')})` : '';
+}
+
 async function fetchWorkReports(orderId) {
   const { data, error } = await supabase
     .from('work_reports')
@@ -510,7 +518,7 @@ export async function renderOrderDetails(orderId, profile) {
         : { waSent: false, skipped: true };
 
       if (res.skipped) notify('User assigned to order.', 'success');
-      else if (res.waSent) notify(`User assigned and WhatsApp sent to ${res.waTarget || res.phone || 'the selected user'}.`, 'success');
+      else if (res.waSent) notify(`User assigned and Fonnte accepted WhatsApp for ${res.waTarget || res.phone || 'the selected user'}${waReceipt(res)}.`, 'success');
       else notify(`User assigned, but WhatsApp notification could not be sent${res.waTarget ? ` to ${res.waTarget}` : ''}${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
       renderOrderDetails(order.id, profile);
     });
@@ -534,7 +542,7 @@ export async function renderOrderDetails(orderId, profile) {
         btn.disabled = false;
         btn.textContent = original;
         if (res.skipped) notify('This role does not receive assignment WhatsApp notifications.', 'warning');
-        else if (res.waSent) notify(`WhatsApp resent to ${res.waTarget || res.phone || assignee.full_name || 'the assigned user'}.`, 'success');
+        else if (res.waSent) notify(`Fonnte accepted WhatsApp for ${res.waTarget || res.phone || assignee.full_name || 'the assigned user'}${waReceipt(res)}.`, 'success');
         else notify(`WhatsApp could not be sent${res.waTarget ? ` to ${res.waTarget}` : ''}${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
       });
     });
@@ -670,7 +678,7 @@ export async function renderOrderDetails(orderId, profile) {
         reporterName: profile?.full_name || profile?.email || 'Team Solution',
       });
       if (reportNotify.sent) {
-        notify(`Work report submitted and WhatsApp sent to ${reportNotify.sent} HCAM user${reportNotify.sent > 1 ? 's' : ''}${reportNotify.waTarget ? ` (${reportNotify.waTarget})` : ''}.`, 'success');
+        notify(`Work report submitted and Fonnte accepted WhatsApp for ${reportNotify.sent} HCAM user${reportNotify.sent > 1 ? 's' : ''}${reportNotify.waTarget ? ` (${reportNotify.waTarget})` : ''}.`, 'success');
       } else {
         notify(`Report saved, but WhatsApp could not be sent${reportNotify.waTarget ? ` to ${reportNotify.waTarget}` : ''}${reportNotify.waError ? `: ${reportNotify.waError}` : '.'}`, 'warning');
       }

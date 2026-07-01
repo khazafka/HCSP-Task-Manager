@@ -143,7 +143,7 @@ async function notifyHcamOrderSubmitted(order, businessUnitName, creatorName) {
     }
   }
 
-  if (sent) notify('Order submitted and WhatsApp sent to the order contact.', 'success');
+  if (sent) notify('Order submitted and Fonnte accepted WhatsApp for the order contact.', 'success');
   else notify(`Order submitted, but WhatsApp could not be sent${lastError ? `: ${lastError}` : '. Check the order contact number and Fonnte settings.'}`, 'warning');
 }
 

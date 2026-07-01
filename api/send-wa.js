@@ -136,9 +136,10 @@ export default async function handler(req, res) {
     const form = new FormData();
     form.append('target', normalizedTarget);
     form.append('message', message);
-    // Queue the notification instead of rejecting it when the Fonnte device is temporarily disconnected.
+    // Fail loudly when the Fonnte device is disconnected. This avoids a false
+    // "success" toast for messages that are merely queued and not delivered yet.
     // The target is already normalized to a full international number, so disable country-code rewriting.
-    form.append('connectOnly', 'false');
+    form.append('connectOnly', 'true');
     form.append('countryCode', '0');
 
     const fonnteRes = await fetch('https://api.fonnte.com/send', {
