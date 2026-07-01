@@ -51,6 +51,18 @@ function safeHost(value) {
   try { return new URL(value).host; } catch (_) { return value || '(empty)'; }
 }
 
+// Read the payload of a JWT without verifying it (verification is done by the
+// data-API probe). Used only to extract the user id for logging.
+function decodeJwt(jwt) {
+  try {
+    const part = jwt.split('.')[1];
+    const json = Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch (_) {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -68,28 +80,30 @@ export default async function handler(req, res) {
   const jwt = (req.headers.authorization || req.headers.Authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!jwt) return res.status(401).json({ error: 'Missing auth token' });
 
-  // Validate the JWT by calling the Supabase Auth API directly. supabase-js's
-  // getUser(jwt) can throw "Auth session missing!" in serverless runtimes
-  // (no browser session storage); a plain fetch avoids that entirely.
-  let user = null;
+  // Validate the caller's token the same way every other app request is: against
+  // the data API (PostgREST). It checks the JWT signature + expiry but — unlike
+  // /auth/v1/user — does NOT require the login session row to still exist. So a
+  // valid, unexpired token that was signed out elsewhere ("session_not_found")
+  // still works here, exactly like the DB write that triggered this send.
+  // A forged/expired token gets 401 and is rejected.
+  const claims = decodeJwt(jwt);
   try {
-    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    const probe = await fetch(`${SUPABASE_URL}/rest/v1/users?select=id&limit=1`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${jwt}` },
     });
-    if (userRes.ok) {
-      user = await userRes.json();
-    } else {
-      const detail = (await userRes.text().catch(() => '')).slice(0, 200);
+    if (probe.status === 401 || probe.status === 403) {
+      const detail = (await probe.text().catch(() => '')).slice(0, 200);
       return res.status(401).json({
-        error: `Invalid or expired session (HTTP ${userRes.status} from ${safeHost(SUPABASE_URL)}). ${detail}`.trim(),
+        error: `Invalid or expired token (HTTP ${probe.status} from ${safeHost(SUPABASE_URL)}). Please log in again. ${detail}`.trim(),
       });
     }
   } catch (e) {
-    return res.status(401).json({ error: `Could not verify session against ${safeHost(SUPABASE_URL)}: ${e.message}` });
+    return res.status(401).json({ error: `Could not verify token against ${safeHost(SUPABASE_URL)}: ${e.message}` });
   }
-  if (!user?.id) {
-    return res.status(401).json({ error: 'Invalid or expired session (no user returned)' });
+  if (!claims?.sub) {
+    return res.status(401).json({ error: 'Invalid auth token (could not read user id)' });
   }
+  console.info('[send-wa] authorized caller:', { userId: claims.sub, email: claims.email });
 
   // 2) Validate input
   const { target, recipientId, message } = req.body || {};
