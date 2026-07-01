@@ -1,7 +1,6 @@
 import { supabase } from '../supabase.js';
 import { renderOrders, renderEditOrder, itemOrderLabel, orderUnitName } from './order.js';
 import { createNotification } from '../utils/notifications.js';
-import { sendWhatsAppMessage } from '../utils/whatsapp.js';
 import { notify } from '../utils/notify.js';
 import { normalizeRole } from '../main.js';
 import { deleteAttachmentFiles, downloadAttachments, formatFileSize, openAttachment, uploadReportFiles, validateReportFiles } from '../utils/report-files.js';
@@ -50,11 +49,11 @@ async function notifyAssignment({ order, assignee, assignmentType }) {
     link: orderLink(order),
   });
 
-  // In-app notification lands on the assignee's bell, but the WhatsApp goes to
-  // the order's contact number (not the assignee's profile phone).
+  // In-app notification lands on the assignee's bell, and WhatsApp goes to
+  // the assignee's profile phone from User Management.
   return createNotification({
     recipientId: assignee.id,
-    recipientPhone: order.contact_number,
+    recipientPhone: assignee.phone,
     orderId: order.id,
     type: 'order_assigned',
     title: waTitle('assign'),
@@ -77,33 +76,29 @@ async function notifyReportToHcam({ order, reportTitle, reporterName }) {
     link: orderLink(order),
   });
 
-  // In-app notifications for HCAM assignees; the WhatsApp is sent once, to the
-  // order's contact number.
+  // In-app + WhatsApp notifications for assigned HCAM users.
+  // The WhatsApp goes to each HCAM user's profile phone from User Management.
+  let sent = 0;
+  let waError = '';
+  let waTarget = '';
   for (const a of hcamAssignees) {
-    await createNotification({
+    const res = await createNotification({
       recipientId: a.user_id,
+      recipientPhone: a.users?.phone,
       orderId: order.id,
       type: 'report_submitted',
       title: waTitle('report'),
       body,
-      whatsapp: false,
     });
-  }
-
-  let sent = 0;
-  let waError = '';
-  if (!order.contact_number) {
-    waError = 'no contact number is set on the order';
-  } else {
-    try {
-      await sendWhatsAppMessage(order.contact_number, body);
-      sent = 1;
-    } catch (err) {
-      waError = err.message || 'WhatsApp request failed';
+    if (res.waSent) {
+      sent++;
+      waTarget = res.waTarget || a.users?.phone || waTarget;
+    } else if (res.waError) {
+      waError = res.waError;
     }
   }
 
-  return { total: hcamAssignees.length, sent, waError };
+  return { total: hcamAssignees.length, sent, waError, waTarget };
 }
 
 function todayValue() {
@@ -371,7 +366,10 @@ export async function renderOrderDetails(orderId, profile) {
             ${visibleAssignments.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">${visibleAssignments.map(a => `
               <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-3);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:9px 12px">
                 <div><div style="font:600 12.5px var(--sans);color:var(--text)">${a.users?.full_name || '—'}</div><div style="font-size:10.5px;color:var(--text-faint);text-transform:uppercase">${a.assignment_type || a.users?.role || ''}</div></div>
-                ${canAssign ? `<button data-unassign-user="${assignmentUserId(a)}" data-unassign="${a.id}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">&times;</button>` : ''}
+                ${canAssign ? `<div style="display:flex;align-items:center;gap:8px">
+                  <button class="btn btn-ghost" data-resend-assignment="${assignmentUserId(a)}" style="padding:6px 9px;font-size:11px">${t('det.resendWa')}</button>
+                  <button data-unassign-user="${assignmentUserId(a)}" data-unassign="${a.id}" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px">&times;</button>
+                </div>` : ''}
               </div>`).join('')}</div>` : `<div class="empty" style="padding:10px 0">${t('det.noOperators')}</div>`}
             ${canAssign ? `
               <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-soft);padding-top:12px">
@@ -509,9 +507,33 @@ export async function renderOrderDetails(orderId, profile) {
         : { waSent: false, skipped: true };
 
       if (res.skipped) notify('User assigned to order.', 'success');
-      else if (res.waSent) notify(`User assigned and WhatsApp sent to the order contact${res.phone ? ` (${res.phone})` : ''}.`, 'success');
+      else if (res.waSent) notify(`User assigned and WhatsApp sent to ${res.waTarget || res.phone || 'the selected user'}.`, 'success');
       else notify(`User assigned, but WhatsApp notification could not be sent${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
       renderOrderDetails(order.id, profile);
+    });
+    container.querySelectorAll('[data-resend-assignment]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const userId = btn.dataset.resendAssignment;
+        const assignment = visibleAssignments.find(a => assignmentUserId(a) === userId);
+        const assignee = assignment?.users || (allUsers || []).find(u => u.id === userId);
+        if (!assignee?.id) {
+          notify('Assigned user could not be found.', 'error');
+          return;
+        }
+        btn.disabled = true;
+        const original = btn.textContent;
+        btn.textContent = 'Sending...';
+        const res = await notifyAssignment({
+          order,
+          assignee,
+          assignmentType: assignment?.assignment_type || assignee.role,
+        });
+        btn.disabled = false;
+        btn.textContent = original;
+        if (res.skipped) notify('This role does not receive assignment WhatsApp notifications.', 'warning');
+        else if (res.waSent) notify(`WhatsApp resent to ${res.waTarget || res.phone || assignee.full_name || 'the assigned user'}.`, 'success');
+        else notify(`WhatsApp could not be sent${res.waError ? `: ${res.waError}` : '.'}`, 'warning');
+      });
     });
     container.querySelectorAll('[data-unassign]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -645,7 +667,7 @@ export async function renderOrderDetails(orderId, profile) {
         reporterName: profile?.full_name || profile?.email || 'Team Solution',
       });
       if (reportNotify.sent) {
-        notify('Work report submitted and WhatsApp sent to the order contact.', 'success');
+        notify(`Work report submitted and WhatsApp sent to ${reportNotify.sent} HCAM user${reportNotify.sent > 1 ? 's' : ''}${reportNotify.waTarget ? ` (${reportNotify.waTarget})` : ''}.`, 'success');
       } else {
         notify(`Report saved, but WhatsApp could not be sent${reportNotify.waError ? `: ${reportNotify.waError}` : '.'}`, 'warning');
       }
