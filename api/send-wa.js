@@ -68,12 +68,27 @@ export default async function handler(req, res) {
   const jwt = (req.headers.authorization || req.headers.Authorization || '').replace(/^Bearer\s+/i, '').trim();
   if (!jwt) return res.status(401).json({ error: 'Missing auth token' });
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(jwt);
-  if (authErr || !user) {
-    return res.status(401).json({
-      error: `Invalid or expired session. WhatsApp API is validating against ${safeHost(SUPABASE_URL)}. Make sure server Supabase env vars match the browser Supabase env vars. ${authErr?.message ? `Supabase said: ${authErr.message}` : ''}`.trim(),
+  // Validate the JWT by calling the Supabase Auth API directly. supabase-js's
+  // getUser(jwt) can throw "Auth session missing!" in serverless runtimes
+  // (no browser session storage); a plain fetch avoids that entirely.
+  let user = null;
+  try {
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${jwt}` },
     });
+    if (userRes.ok) {
+      user = await userRes.json();
+    } else {
+      const detail = (await userRes.text().catch(() => '')).slice(0, 200);
+      return res.status(401).json({
+        error: `Invalid or expired session (HTTP ${userRes.status} from ${safeHost(SUPABASE_URL)}). ${detail}`.trim(),
+      });
+    }
+  } catch (e) {
+    return res.status(401).json({ error: `Could not verify session against ${safeHost(SUPABASE_URL)}: ${e.message}` });
+  }
+  if (!user?.id) {
+    return res.status(401).json({ error: 'Invalid or expired session (no user returned)' });
   }
 
   // 2) Validate input
